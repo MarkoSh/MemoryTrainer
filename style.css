@@ -67,3 +67,13 @@ body { background: #020617; }
 
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Spritz RSVP speed-reading display */
+.spritz-stage { position: relative; height: 110px; display: flex; align-items: center; }
+.spritz-word { display: flex; align-items: baseline; width: 100%; font-size: 2.1rem; font-weight: 800; white-space: nowrap; overflow: hidden; }
+.spritz-left { flex: 1 1 0; text-align: right; color: #e2e8f0; }
+.spritz-right { flex: 1 1 0; text-align: left; color: #e2e8f0; }
+.spritz-pivot { flex: none; color: #f43f5e; }
+.spritz-tick { position: absolute; left: 50%; width: 2px; height: 12px; background: #f43f5e; opacity: .5; transform: translateX(-50%); }
+.spritz-tick.top { top: 4px; }
+.spritz-tick.bottom { bottom: 4px; }

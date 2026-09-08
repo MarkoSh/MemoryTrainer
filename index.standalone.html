@@ -1,0 +1,2173 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#020617">
+<title>Тренажёры памяти</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.454.0/dist/umd/lucide.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+* { font-family: 'Inter', system-ui, sans-serif; }
+.thai { font-family: 'Noto Sans Thai', 'Inter', sans-serif; }
+
+body { -webkit-tap-highlight-color: transparent; }
+
+body { background: #020617; }
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+.app-card {
+  width: 100%;
+  max-width: 768px; /* iPad width cap, even on desktop */
+  min-height: 100vh;
+  background: #020617;
+}
+@media (min-width: 640px) {
+  .app-card {
+    min-height: 0;
+    margin: 24px 0;
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+}
+
+/* Flip card */
+.flip-card { perspective: 800px; }
+.flip-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform .35s cubic-bezier(.4,.2,.2,1);
+  transform-style: preserve-3d;
+}
+.flip-card.is-hidden .flip-inner { transform: rotateY(180deg); }
+.flip-face {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  backface-visibility: hidden;
+  border-radius: 6px;
+}
+.flip-face.back { transform: rotateY(180deg); }
+
+@keyframes shake {
+  10%, 90% { transform: translateX(-2px); }
+  20%, 80% { transform: translateX(3px); }
+  30%, 50%, 70% { transform: translateX(-5px); }
+  40%, 60% { transform: translateX(5px); }
+}
+.shake { animation: shake .5s; }
+
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,.5); }
+  50% { box-shadow: 0 0 0 8px rgba(239,68,68,0); }
+}
+.pulse-dot { animation: pulse-dot 1.4s infinite; }
+
+@keyframes pop-in {
+  from { opacity: 0; transform: scale(.85); }
+  to { opacity: 1; transform: scale(1); }
+}
+.pop-in { animation: pop-in .2s ease-out; }
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Spritz RSVP speed-reading display */
+.spritz-stage { position: relative; height: 110px; display: flex; align-items: center; }
+.spritz-word { display: flex; align-items: baseline; width: 100%; font-size: 2.1rem; font-weight: 800; white-space: nowrap; overflow: hidden; }
+.spritz-left { flex: 1 1 0; text-align: right; color: #e2e8f0; }
+.spritz-right { flex: 1 1 0; text-align: left; color: #e2e8f0; }
+.spritz-pivot { flex: none; color: #f43f5e; }
+.spritz-tick { position: absolute; left: 50%; width: 2px; height: 12px; background: #f43f5e; opacity: .5; transform: translateX(-50%); }
+.spritz-tick.top { top: 4px; }
+.spritz-tick.bottom { bottom: 4px; }
+</style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+  <div class="app-shell">
+    <div id="app-root" class="app-card"></div>
+  </div>
+
+  <script>
+// Общие утилиты и наборы символов для всех тренажёров
+const ICON_POOL = ['star','heart','sun','moon','cloud','umbrella','anchor','bell','book-open','camera',
+  'car','cat','coffee','gift','key','leaf','map-pin','music','phone','rocket',
+  'scissors','shield','smile','trophy','watch','wifi','zap','flag','gem','flame',
+  'snowflake','ghost','bike','fish','house'];
+
+// полный тайский алфавит — все 44 согласные (включая 2 устаревшие: ฃ, ฅ)
+const THAI_POOL = [
+  { ch: 'ก', tr: 'k' }, { ch: 'ข', tr: 'kh' }, { ch: 'ฃ', tr: 'kh' }, { ch: 'ค', tr: 'kh' },
+  { ch: 'ฅ', tr: 'kh' }, { ch: 'ฆ', tr: 'kh' }, { ch: 'ง', tr: 'ng' }, { ch: 'จ', tr: 'ch' },
+  { ch: 'ฉ', tr: 'ch' }, { ch: 'ช', tr: 'ch' }, { ch: 'ซ', tr: 's' }, { ch: 'ฌ', tr: 'ch' },
+  { ch: 'ญ', tr: 'y' }, { ch: 'ฎ', tr: 'd' }, { ch: 'ฏ', tr: 't' }, { ch: 'ฐ', tr: 'th' },
+  { ch: 'ฑ', tr: 'th' }, { ch: 'ฒ', tr: 'th' }, { ch: 'ณ', tr: 'n' }, { ch: 'ด', tr: 'd' },
+  { ch: 'ต', tr: 't' }, { ch: 'ถ', tr: 'th' }, { ch: 'ท', tr: 'th' }, { ch: 'ธ', tr: 'th' },
+  { ch: 'น', tr: 'n' }, { ch: 'บ', tr: 'b' }, { ch: 'ป', tr: 'p' }, { ch: 'ผ', tr: 'ph' },
+  { ch: 'ฝ', tr: 'f' }, { ch: 'พ', tr: 'ph' }, { ch: 'ฟ', tr: 'f' }, { ch: 'ภ', tr: 'ph' },
+  { ch: 'ม', tr: 'm' }, { ch: 'ย', tr: 'y' }, { ch: 'ร', tr: 'r' }, { ch: 'ล', tr: 'l' },
+  { ch: 'ว', tr: 'w' }, { ch: 'ศ', tr: 's' }, { ch: 'ษ', tr: 's' }, { ch: 'ส', tr: 's' },
+  { ch: 'ห', tr: 'h' }, { ch: 'ฬ', tr: 'l' }, { ch: 'อ', tr: 'o' }, { ch: 'ฮ', tr: 'h' },
+];
+
+const Utils = (() => {
+  function el(tag, attrs = {}, children = []) {
+    const node = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (v == null) continue;
+      if (k === 'class') node.className = v;
+      else if (k === 'html') node.innerHTML = v;
+      else if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.slice(2), v);
+      else node.setAttribute(k, v);
+    }
+    for (const c of [].concat(children)) {
+      if (c == null) continue;
+      node.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+    }
+    return node;
+  }
+
+  function shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function randInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  // берёт n случайных уникальных элементов из массива
+  function sample(arr, n) {
+    return shuffle(arr).slice(0, n);
+  }
+
+  function getBest(key) {
+    return localStorage.getItem('mt_best_' + key);
+  }
+  function setBest(key, value, higherIsBetter) {
+    const cur = getBest(key);
+    if (cur == null || (higherIsBetter ? Number(value) > Number(cur) : Number(value) < Number(cur))) {
+      localStorage.setItem('mt_best_' + key, value);
+      return true;
+    }
+    return false;
+  }
+
+  const HISTORY_LIMIT = 30;
+  function recordResult(gameId, value) {
+    const key = 'mt_hist_' + gameId;
+    let hist = [];
+    try { hist = JSON.parse(localStorage.getItem(key)) || []; } catch (e) { hist = []; }
+    hist.push({ t: Date.now(), v: value });
+    if (hist.length > HISTORY_LIMIT) hist = hist.slice(hist.length - HISTORY_LIMIT);
+    localStorage.setItem(key, JSON.stringify(hist));
+  }
+  function getHistory(gameId) {
+    try { return JSON.parse(localStorage.getItem('mt_hist_' + gameId)) || []; } catch (e) { return []; }
+  }
+
+  function fmtTime(ms) {
+    const s = Math.floor(ms / 1000);
+    const cs = Math.floor((ms % 1000) / 10);
+    return `${s}.${String(cs).padStart(2, '0')}с`;
+  }
+
+  // запускает CSS-переход полосы прогресса со 100% до 0%; принудительный reflow
+  // между сбросом ширины и стартом transition — иначе браузер иногда схлопывает
+  // оба изменения в один кадр и полоса скачет к 0% без анимации (заметно через раунд)
+  function startBarDrain(el, durationMs) {
+    el.style.transitionDuration = '0ms';
+    el.style.width = '100%';
+    void el.offsetWidth;
+    requestAnimationFrame(() => {
+      el.style.transitionDuration = durationMs + 'ms';
+      el.style.width = '0%';
+    });
+  }
+
+  // озвучка слов/букв через нативный Web Speech API — без внешних зависимостей
+  function speak(text, lang) {
+    if (!text || !window.speechSynthesis) return;
+    try {
+      window.speechSynthesis.cancel(); // обрываем предыдущую фразу, чтобы клики не ставились в очередь
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = lang;
+      utter.rate = 0.9;
+      window.speechSynthesis.speak(utter);
+    } catch (e) { /* Web Speech недоступен — молча игнорируем */ }
+  }
+  function getVoiceEnabled() { return localStorage.getItem('mt_voice_enabled') === '1'; }
+  function setVoiceEnabled(v) { localStorage.setItem('mt_voice_enabled', v ? '1' : '0'); }
+
+  // тумблер озвучки — общий для тренажёров со словами/буквами (Строчка, Слова)
+  function buildVoiceToggle(onChange) {
+    const enabled = getVoiceEnabled();
+    const toggleBtn = el('button', {
+      class: 'w-full flex items-center justify-between p-3 rounded-md border border-slate-700 bg-slate-800/50',
+      onclick: () => { setVoiceEnabled(!enabled); onChange(); },
+    }, [
+      el('div', { class: 'flex items-center gap-2' }, [
+        el('i', { 'data-lucide': 'volume-2', class: 'w-4 h-4 text-slate-400' }),
+        el('span', { class: 'text-sm font-semibold text-slate-100' }, I18N.t('common.voice')),
+      ]),
+      el('span', { class: `w-10 h-6 rounded-full relative transition ${enabled ? 'bg-emerald-500' : 'bg-slate-700'}` },
+        el('span', { class: `absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all ${enabled ? 'left-[18px]' : 'left-0.5'}` })
+      ),
+    ]);
+
+    const help = el('details', { class: 'mt-1.5 px-1 text-xs text-slate-500' }, [
+      el('summary', { class: 'cursor-pointer select-none text-slate-500 hover:text-slate-400 py-1' }, I18N.t('common.voiceHelpTitle')),
+      el('div', { class: 'mt-1.5 space-y-1.5 pb-1' }, [
+        el('p', {}, I18N.t('common.voiceHelpWindows')),
+        el('p', {}, I18N.t('common.voiceHelpMac')),
+        el('p', {}, I18N.t('common.voiceHelpIOS')),
+        el('p', {}, I18N.t('common.voiceHelpAndroid')),
+        el('p', {}, I18N.t('common.voiceHelpLinux')),
+        el('p', { class: 'italic' }, I18N.t('common.voiceHelpNote')),
+      ]),
+    ]);
+
+    return el('div', { class: 'mb-6' }, [toggleBtn, help]);
+  }
+
+  function refreshIcons() {
+    if (window.lucide) window.lucide.createIcons({ icons: window.lucide.icons });
+  }
+
+  return { el, shuffle, randInt, sample, getBest, setBest, recordResult, getHistory, fmtTime, refreshIcons, startBarDrain, speak, getVoiceEnabled, setVoiceEnabled, buildVoiceToggle };
+})();
+</script>
+  <script>
+// Простой словарь переводов (RU/EN) с выбором языка, сохраняемым в localStorage
+const I18N = (() => {
+  const dict = {
+    ru: {
+      app: { title: 'Тренажёры памяти', subtitle: 'Выбери игру, чтобы прокачать память и внимание' },
+      common: {
+        record: 'Рекорд', playAgain: 'Ещё раз', toMenu: 'В меню', newRecord: ' — новый рекорд!',
+        points: '{n} очков', chooseLevel: 'Выбери уровень',
+        voice: 'Озвучка',
+        voiceHelpTitle: 'Как включить голоса в системе',
+        voiceHelpWindows: 'Windows: Параметры → Время и язык → Речь → Управление голосами → добавить голос (тайский/английский).',
+        voiceHelpMac: 'macOS: Системные настройки → Спец. возможности → Контент, воспроизводимый голосом → Голоса системы → Управление голосами → скачать тайский.',
+        voiceHelpIOS: 'iOS/iPadOS: Настройки → Универсальный доступ → Озвучивание контента → Голоса → добавить язык → Тайский.',
+        voiceHelpAndroid: 'Android: Настройки → Система → Языки и ввод → Синтез речи → настройки движка → установить голосовые данные → Тайский.',
+        voiceHelpLinux: 'Linux: голос зависит от speech-dispatcher/espeak-ng — установите пакет espeak-ng для базовой поддержки тайского и английского.',
+        voiceHelpNote: 'После установки голоса иногда нужно перезапустить браузер.',
+      },
+      game: {
+        line: { title: 'Строчка', desc: 'Запомни и повтори ряд символов' },
+        math: { title: 'Математика', desc: 'Считай быстрее пяти вариантов' },
+        pairs: { title: 'Пары', desc: 'Найди все парные карточки по памяти' },
+        schulte: { title: 'Таблицы Шульте', desc: 'Находи числа по порядку боковым зрением' },
+        words: { title: 'Слова', desc: 'Запомни и повтори набор слов' },
+        speedread: { title: 'Скорочтение', desc: 'Читай текст словами по методу Spritz' },
+        stats: { title: 'Статистика', desc: 'Графики прогресса по всем тренажёрам' },
+      },
+      line: {
+        symbolSet: 'Набор символов',
+        setEn: 'Английские буквы', setIcons: 'Иконки', setThai: 'Тайский алфавит',
+        symbolsInSet: '{n} символов в наборе',
+        length: 'Длина строки',
+        roundType: 'Тип раунда',
+        roundForward: 'Прямой порядок', roundForwardDesc: 'Повтори символы в том же порядке',
+        roundReverse: 'Обратный порядок', roundReverseDesc: 'Повтори символы задом наперёд',
+        roundGuess: 'Угадай символ', roundGuessDesc: 'Назови символ на отмеченной позиции',
+        roundCombo: 'Все раунды', roundComboDesc: 'Одна строка — три испытания подряд: прямой, обратный, угадай',
+        start: 'Начать игру',
+        phase: 'Этап {i} из {n}: {name}',
+        round: 'Раунд {n}',
+        gameOver: 'Игра окончена',
+        scoreLine: 'Счёт: {score}',
+      },
+      math: {
+        chooseLevel: 'Выбери уровень · {n} вопросов',
+        level1: '1 действие', level2: '2 действия', level3: '3 действия со скобками',
+        recordN: 'Рекорд: {n}', notPlayed: 'Ещё не пройдено',
+        question: 'Вопрос {i} / {n}',
+        result: 'Результат',
+        correct: 'Верно: {c} / {t} ({pct}%)',
+        scoreLine: 'Счёт: {score}',
+      },
+      pairs: {
+        symbolSet: 'Набор символов', setIcons: 'Иконки', setThai: 'Тайский алфавит',
+        levelEasy: 'Лёгкий', levelMedium: 'Средний', levelHard: 'Сложный',
+        memorizeInfo: 'Запоминание: {s}с, ошибок можно: {m}',
+        label: 'Пары',
+        mistakes: 'Ошибки: {m} / {allowed}',
+        won: 'Все пары найдены!', lost: 'Слишком много ошибок',
+        wonInfo: 'Время: {t}, счёт: {s}',
+        tryAgain: 'Попробуй ещё раз',
+      },
+      schulte: {
+        levelClassic: 'Классика', levelClassicDesc: 'Сетка неподвижна, смотри в красную точку',
+        levelMoving: 'Подвижная сетка', levelMovingDesc: 'После каждого клика все числа перемешиваются',
+        levelPeriphery: 'Периферия', levelPeripheryDesc: 'В центре — число, которое нужно найти взглядом',
+        recordSuffix: ' · рекорд: {t}',
+        mistakes: 'Ошибки: {n}',
+        won: 'Таблица пройдена!',
+        wonInfo: 'Время: {t} · ошибок: {n}',
+      },
+      words: {
+        language: 'Язык',
+        setEn: 'Английский → тайский', setTh: 'Тайский → английский',
+        wordsInSet: '{n} слов в наборе',
+        wordCount: 'Количество слов',
+        roundType: 'Тип раунда',
+        roundForward: 'Прямой порядок', roundForwardDesc: 'Повтори слова в том же порядке',
+        roundReverse: 'Обратный порядок', roundReverseDesc: 'Повтори слова задом наперёд',
+        roundGuess: 'Угадай слово', roundGuessDesc: 'Назови слово на отмеченной позиции',
+        roundCombo: 'Все раунды', roundComboDesc: 'Один набор слов — три испытания подряд: прямой, обратный, угадай',
+        start: 'Начать игру',
+        phase: 'Этап {i} из {n}: {name}',
+        round: 'Раунд {n}',
+        gameOver: 'Игра окончена',
+        scoreLine: 'Счёт: {score}',
+      },
+      speedread: {
+        chooseFile: 'Загрузи текстовый файл (.txt), чтобы начать',
+        chooseFileBtn: 'Выбрать файл',
+        emptyFile: 'В файле нет текста',
+        changeFile: 'Другой файл',
+        progress: '{i} / {n}',
+        speedLabel: 'Скорость:',
+        wpmUnit: 'слов/мин',
+        start: 'Старт',
+        pause: 'Пауза',
+        bookmark: 'Закладка',
+        toStart: 'В начало',
+        toBookmark: 'К закладке',
+      },
+      stats: {
+        sessions: 'Сессий: {n}',
+        playAgain: 'Сыграй ещё раз, чтобы увидеть график',
+        last: 'Последний: {v}',
+        best: 'Лучший: {v}',
+      },
+    },
+    en: {
+      app: { title: 'Memory Trainers', subtitle: 'Pick a game to train your memory and focus' },
+      common: {
+        record: 'Record', playAgain: 'Play again', toMenu: 'Menu', newRecord: ' — new record!',
+        points: '{n} points', chooseLevel: 'Choose a level',
+        voice: 'Voice',
+        voiceHelpTitle: 'How to enable voices on your system',
+        voiceHelpWindows: 'Windows: Settings → Time & Language → Speech → Manage voices → add a voice (Thai/English).',
+        voiceHelpMac: 'macOS: System Settings → Accessibility → Spoken Content → System Voice → Manage Voices → download Thai.',
+        voiceHelpIOS: 'iOS/iPadOS: Settings → Accessibility → Spoken Content → Voices → add a language → Thai.',
+        voiceHelpAndroid: 'Android: Settings → System → Languages & input → Text-to-speech output → engine settings → install voice data → Thai.',
+        voiceHelpLinux: 'Linux: voice availability depends on speech-dispatcher/espeak-ng — install the espeak-ng package for basic Thai/English support.',
+        voiceHelpNote: 'You may need to restart the browser after installing a voice.',
+      },
+      game: {
+        line: { title: 'Sequence', desc: 'Memorize and repeat a row of symbols' },
+        math: { title: 'Math', desc: 'Solve faster than the five options' },
+        pairs: { title: 'Pairs', desc: 'Find every matching pair from memory' },
+        schulte: { title: 'Schulte Tables', desc: 'Find numbers in order using peripheral vision' },
+        words: { title: 'Words', desc: 'Memorize and repeat a set of words' },
+        speedread: { title: 'Speed Reading', desc: 'Read text word-by-word with the Spritz method' },
+        stats: { title: 'Statistics', desc: 'Progress charts for every trainer' },
+      },
+      line: {
+        symbolSet: 'Symbol set',
+        setEn: 'English letters', setIcons: 'Icons', setThai: 'Thai alphabet',
+        symbolsInSet: '{n} symbols in the set',
+        length: 'Sequence length',
+        roundType: 'Round type',
+        roundForward: 'Forward order', roundForwardDesc: 'Repeat the symbols in the same order',
+        roundReverse: 'Reverse order', roundReverseDesc: 'Repeat the symbols backwards',
+        roundGuess: 'Guess the symbol', roundGuessDesc: 'Name the symbol at the marked position',
+        roundCombo: 'All rounds', roundComboDesc: 'One sequence — three challenges in a row: forward, reverse, guess',
+        start: 'Start game',
+        phase: 'Stage {i} of {n}: {name}',
+        round: 'Round {n}',
+        gameOver: 'Game over',
+        scoreLine: 'Score: {score}',
+      },
+      math: {
+        chooseLevel: 'Choose a level · {n} questions',
+        level1: '1 operation', level2: '2 operations', level3: '3 operations with brackets',
+        recordN: 'Record: {n}', notPlayed: 'Not played yet',
+        question: 'Question {i} / {n}',
+        result: 'Result',
+        correct: 'Correct: {c} / {t} ({pct}%)',
+        scoreLine: 'Score: {score}',
+      },
+      pairs: {
+        symbolSet: 'Symbol set', setIcons: 'Icons', setThai: 'Thai alphabet',
+        levelEasy: 'Easy', levelMedium: 'Medium', levelHard: 'Hard',
+        memorizeInfo: 'Memorize: {s}s, mistakes allowed: {m}',
+        label: 'Pairs',
+        mistakes: 'Mistakes: {m} / {allowed}',
+        won: 'All pairs found!', lost: 'Too many mistakes',
+        wonInfo: 'Time: {t}, score: {s}',
+        tryAgain: 'Try again',
+      },
+      schulte: {
+        levelClassic: 'Classic', levelClassicDesc: 'The grid is static, focus on the red dot',
+        levelMoving: 'Moving grid', levelMovingDesc: 'All numbers shuffle after every click',
+        levelPeriphery: 'Periphery', levelPeripheryDesc: 'The center shows the number to find with your eyes',
+        recordSuffix: ' · record: {t}',
+        mistakes: 'Mistakes: {n}',
+        won: 'Table complete!',
+        wonInfo: 'Time: {t} · mistakes: {n}',
+      },
+      words: {
+        language: 'Language',
+        setEn: 'English → Thai', setTh: 'Thai → English',
+        wordsInSet: '{n} words in the set',
+        wordCount: 'Number of words',
+        roundType: 'Round type',
+        roundForward: 'Forward order', roundForwardDesc: 'Repeat the words in the same order',
+        roundReverse: 'Reverse order', roundReverseDesc: 'Repeat the words backwards',
+        roundGuess: 'Guess the word', roundGuessDesc: 'Name the word at the marked position',
+        roundCombo: 'All rounds', roundComboDesc: 'One set of words — three challenges in a row: forward, reverse, guess',
+        start: 'Start game',
+        phase: 'Stage {i} of {n}: {name}',
+        round: 'Round {n}',
+        gameOver: 'Game over',
+        scoreLine: 'Score: {score}',
+      },
+      speedread: {
+        chooseFile: 'Load a text file (.txt) to begin',
+        chooseFileBtn: 'Choose file',
+        emptyFile: 'The file has no text',
+        changeFile: 'Change file',
+        progress: '{i} / {n}',
+        speedLabel: 'Speed:',
+        wpmUnit: 'words/min',
+        start: 'Start',
+        pause: 'Pause',
+        bookmark: 'Bookmark',
+        toStart: 'To start',
+        toBookmark: 'To bookmark',
+      },
+      stats: {
+        sessions: 'Sessions: {n}',
+        playAgain: 'Play again to see the chart',
+        last: 'Last: {v}',
+        best: 'Best: {v}',
+      },
+    },
+  };
+
+  let lang = localStorage.getItem('mt_lang') || 'ru';
+
+  function t(key, vars) {
+    const node = key.split('.').reduce((acc, k) => (acc == null ? acc : acc[k]), dict[lang]);
+    let str = node == null ? key : node;
+    if (vars) Object.entries(vars).forEach(([k, v]) => { str = str.replace(new RegExp(`\\{${k}\\}`, 'g'), v); });
+    return str;
+  }
+  function getLang() { return lang; }
+  function setLang(l) { lang = l; localStorage.setItem('mt_lang', l); }
+
+  return { t, getLang, setLang };
+})();
+</script>
+  <script>
+// Тренажёр "Строчка" — запоминание и воспроизведение последовательности символов
+const GameLine = (() => {
+  const LEVELS = {
+    en: { nameKey: 'line.setEn', pool: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(ch => ({ id: ch, ch, lang: 'en-US' })) },
+    icons: { nameKey: 'line.setIcons', pool: ICON_POOL.map(name => ({ id: name, icon: name })) },
+    thai: { nameKey: 'line.setThai', pool: THAI_POOL.map(t => ({ id: t.ch, ch: t.ch, tr: t.tr, lang: 'th-TH' })) },
+  };
+
+  function maybeSpeak(token) {
+    if (!Utils.getVoiceEnabled() || !token || !token.lang) return;
+    Utils.speak(token.ch, token.lang);
+  }
+
+  const ROUND_TYPES = {
+    forward: { nameKey: 'line.roundForward', descKey: 'line.roundForwardDesc' },
+    reverse: { nameKey: 'line.roundReverse', descKey: 'line.roundReverseDesc' },
+    guess: { nameKey: 'line.roundGuess', descKey: 'line.roundGuessDesc' },
+    combo: { nameKey: 'line.roundCombo', descKey: 'line.roundComboDesc' },
+  };
+
+  const LENGTHS = [3, 4, 5, 6, 7, 8, 10, 12];
+
+  function phasesFor(roundType) {
+    return roundType === 'combo' ? ['forward', 'reverse', 'guess'] : [roundType];
+  }
+
+  function historyVariants() {
+    const arr = [];
+    Object.entries(LEVELS).forEach(([lk, lv]) => {
+      Object.entries(ROUND_TYPES).forEach(([rk, rt]) => {
+        arr.push({ key: `line_${lk}_${rk}`, label: `${I18N.t(lv.nameKey)} · ${I18N.t(rt.nameKey)}` });
+      });
+    });
+    return arr;
+  }
+
+  function tokenNode(token, big) {
+    if (token.icon) {
+      return Utils.el('i', { 'data-lucide': token.icon, class: big ? 'w-7 h-7' : 'w-6 h-6' });
+    }
+    if (token.tr) {
+      return Utils.el('div', { class: 'flex flex-col items-center leading-none' }, [
+        Utils.el('span', { class: `thai ${big ? 'text-2xl' : 'text-xl'} font-bold` }, token.ch),
+        Utils.el('span', { class: 'text-[9px] text-slate-500 mt-0.5' }, token.tr),
+      ]);
+    }
+    return Utils.el('span', { class: big ? 'text-2xl font-extrabold' : 'text-xl font-extrabold' }, token.ch);
+  }
+
+  function mount(root, onExit) {
+    let levelKey = 'en';
+    let roundType = 'forward';
+    let length = 5;
+
+    renderSetup();
+
+    function renderSetup() {
+      root.innerHTML = '';
+      root.appendChild(Utils.el('div', { class: 'mb-5' }, [
+        Utils.el('div', { class: 'text-sm font-semibold text-slate-400 mb-2' }, I18N.t('line.symbolSet')),
+        Utils.el('div', { class: 'grid grid-cols-1 gap-2' }, Object.entries(LEVELS).map(([key, lv]) =>
+          Utils.el('button', {
+            class: `p-3 rounded-md border text-left transition ${levelKey === key ? 'border-indigo-500 bg-indigo-500/10' : 'border-slate-700 bg-slate-800/50'}`,
+            onclick: () => { levelKey = key; renderSetup(); },
+          }, [Utils.el('div', { class: 'font-semibold text-slate-100' }, I18N.t(lv.nameKey)), Utils.el('div', { class: 'text-xs text-slate-500' }, I18N.t('line.symbolsInSet', { n: lv.pool.length }))])
+        )),
+      ]));
+      root.appendChild(Utils.el('div', { class: 'mb-5' }, [
+        Utils.el('div', { class: 'text-sm font-semibold text-slate-400 mb-2' }, I18N.t('line.length')),
+        Utils.el('div', { class: 'grid grid-cols-4 gap-2' }, LENGTHS.map(n =>
+          Utils.el('button', {
+            class: `py-2 rounded-md border font-bold transition ${length === n ? 'border-indigo-500 bg-indigo-500/10 text-slate-100' : 'border-slate-700 bg-slate-800/50 text-slate-300'}`,
+            onclick: () => { length = n; renderSetup(); },
+          }, String(n))
+        )),
+      ]));
+      root.appendChild(Utils.el('div', { class: 'mb-6' }, [
+        Utils.el('div', { class: 'text-sm font-semibold text-slate-400 mb-2' }, I18N.t('line.roundType')),
+        Utils.el('div', { class: 'grid grid-cols-1 gap-2' }, Object.entries(ROUND_TYPES).map(([key, rt]) =>
+          Utils.el('button', {
+            class: `p-3 rounded-md border text-left transition ${roundType === key ? 'border-indigo-500 bg-indigo-500/10' : 'border-slate-700 bg-slate-800/50'}`,
+            onclick: () => { roundType = key; renderSetup(); },
+          }, [Utils.el('div', { class: 'font-semibold text-slate-100' }, I18N.t(rt.nameKey)), Utils.el('div', { class: 'text-xs text-slate-500' }, I18N.t(rt.descKey))])
+        )),
+      ]));
+      root.appendChild(Utils.buildVoiceToggle(renderSetup));
+      root.appendChild(Utils.el('button', {
+        class: 'w-full py-3 rounded-md bg-indigo-500 text-white font-bold hover:bg-indigo-400 active:scale-[.98] transition',
+        onclick: () => startGame(levelKey, roundType, length),
+      }, I18N.t('line.start')));
+      Utils.refreshIcons();
+    }
+
+    function startGame(levelKey, roundType, length) {
+      const state = {
+        levelKey, roundType,
+        pool: LEVELS[levelKey].pool,
+        length,
+        score: 0,
+        lives: 3,
+        hints: 3,
+        round: 1,
+      };
+      playRound(state);
+    }
+
+    function scoreKey(levelKey, roundType) { return `line_${levelKey}_${roundType}`; }
+
+    function playRound(state) {
+      const sequence = Utils.sample(state.pool, state.length);
+      const phases = phasesFor(state.roundType);
+      playPhase(state, sequence, phases, 0, true);
+    }
+
+    function playPhase(state, sequence, phases, phaseIdx, doStudy) {
+      const phaseType = phases[phaseIdx];
+      const noiseCount = Math.min(state.pool.length - state.length, 6 + Math.floor(state.length / 3));
+      const noise = Utils.sample(state.pool.filter(t => !sequence.includes(t)), Math.max(0, noiseCount));
+      const keyboardTokens = Utils.shuffle([...sequence, ...noise]);
+
+      let askOrder;
+      if (phaseType === 'forward') askOrder = sequence.map((_, i) => i);
+      else if (phaseType === 'reverse') askOrder = sequence.map((_, i) => i).reverse();
+      else askOrder = [Utils.randInt(0, sequence.length - 1)];
+
+      let askPtr = 0;
+      const studyTime = 1000 + state.length * 700;
+
+      root.innerHTML = '';
+      root.appendChild(header());
+
+      const isCombo = phases.length > 1;
+      const info = Utils.el('div', { class: 'text-center text-sm text-slate-400 mb-3' },
+        isCombo ? I18N.t('line.phase', { i: phaseIdx + 1, n: phases.length, name: I18N.t(ROUND_TYPES[phaseType].nameKey) }) : I18N.t(ROUND_TYPES[phaseType].descKey));
+      root.appendChild(info);
+
+      const barOuter = Utils.el('div', { class: 'w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mb-4' });
+      const barInner = Utils.el('div', { class: 'h-full bg-indigo-500', style: `width:100%;transition:width linear` });
+      barOuter.appendChild(barInner);
+      if (!doStudy) barOuter.classList.add('invisible');
+      root.appendChild(barOuter);
+
+      const cardsRow = Utils.el('div', { class: 'flex flex-wrap justify-center gap-2 mb-6' });
+      const cardEls = sequence.map((tok, i) => {
+        const front = Utils.el('div', { class: 'flip-face front bg-indigo-500/10 border border-indigo-500/40' }, tokenNode(tok, true));
+        const back = Utils.el('div', { class: 'flip-face back bg-slate-800 border border-slate-700' });
+        const inner = Utils.el('div', { class: 'flip-inner' }, [front, back]);
+        const card = Utils.el('div', { class: `flip-card w-12 h-14 sm:w-14 sm:h-16 ${doStudy ? '' : 'is-hidden'}`, 'data-i': i }, inner);
+        card.addEventListener('click', () => { if (!card.classList.contains('is-hidden')) maybeSpeak(tok); });
+        cardsRow.appendChild(card);
+        return card;
+      });
+      root.appendChild(cardsRow);
+
+      const keyboardWrap = Utils.el('div', { class: 'grid grid-cols-5 gap-2' });
+      root.appendChild(keyboardWrap);
+      Utils.refreshIcons();
+
+      if (doStudy) {
+        Utils.startBarDrain(barInner, studyTime);
+        const studyTimeout = setTimeout(() => {
+          cardEls.forEach(c => c.classList.add('is-hidden'));
+          setTimeout(() => showKeyboard(), 380);
+        }, studyTime);
+        state._studyTimeout = studyTimeout;
+      } else {
+        showKeyboard();
+      }
+
+      function showKeyboard() {
+        highlightTarget();
+        keyboardTokens.forEach(tok => {
+          const btn = Utils.el('button', {
+            class: 'aspect-square flex items-center justify-center rounded-md border border-slate-700 bg-slate-800 hover:border-indigo-400 active:scale-95 transition text-slate-100',
+            onclick: () => { maybeSpeak(tok); handleGuess(tok, btn); },
+          }, tokenNode(tok, false));
+          btn.dataset.id = tok.id;
+          keyboardWrap.appendChild(btn);
+        });
+        Utils.refreshIcons();
+      }
+
+      function highlightTarget() {
+        cardEls.forEach(c => c.classList.remove('ring-2', 'ring-amber-400'));
+        if (askPtr < askOrder.length) {
+          cardEls[askOrder[askPtr]].classList.add('ring-2', 'ring-amber-400');
+        }
+      }
+
+      function handleGuess(tok, btn) {
+        if (askPtr >= askOrder.length) return;
+        const targetIdx = askOrder[askPtr];
+        const correct = sequence[targetIdx].id === tok.id;
+        if (correct) {
+          revealCard(targetIdx, sequence[targetIdx]);
+          state.score += 10 + state.length;
+          askPtr++;
+          highlightTarget();
+          updateHud();
+          if (askPtr >= askOrder.length) advancePhase();
+        } else {
+          state.lives--;
+          btn.classList.add('shake');
+          setTimeout(() => btn.classList.remove('shake'), 500);
+          state.score = Math.max(0, state.score - 5);
+          updateHud();
+          if (state.lives <= 0) gameOver(state);
+        }
+      }
+
+      function revealCard(idx, tok) {
+        const card = cardEls[idx];
+        card.classList.remove('is-hidden');
+        const front = card.querySelector('.flip-face.front');
+        front.innerHTML = '';
+        front.className = 'flip-face front bg-emerald-500/10 border border-emerald-500/50';
+        front.appendChild(tokenNode(tok, true));
+        Utils.refreshIcons();
+      }
+
+      function advancePhase() {
+        clearTimeout(state._studyTimeout);
+        setTimeout(() => {
+          if (phaseIdx + 1 < phases.length) {
+            playPhase(state, sequence, phases, phaseIdx + 1, false);
+          } else {
+            state.round++;
+            playRound(state);
+          }
+        }, 900);
+      }
+
+      function useHint() {
+        if (state.hints <= 0 || askPtr >= askOrder.length) return;
+        state.hints--;
+        state.score = Math.max(0, state.score - 15);
+        const targetIdx = askOrder[askPtr];
+        revealCard(targetIdx, sequence[targetIdx]);
+        askPtr++;
+        highlightTarget();
+        updateHud();
+        if (askPtr >= askOrder.length) advancePhase();
+      }
+
+      function header() {
+        const hud = Utils.el('div', { class: 'flex items-center justify-between mb-4' }, [
+          Utils.el('div', { class: 'text-sm font-semibold text-slate-400' }, I18N.t('line.round', { n: state.round })),
+          Utils.el('div', { id: 'line-hearts', class: 'flex items-center gap-1' }),
+          Utils.el('button', { id: 'line-hint-btn', class: 'flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-md bg-amber-500/15 text-amber-400', onclick: () => useHint() }, [
+            Utils.el('i', { 'data-lucide': 'lightbulb', class: 'w-4 h-4' }),
+            Utils.el('span', { id: 'line-hint-count' }, String(state.hints)),
+          ]),
+          Utils.el('span', { id: 'line-score', class: 'text-sm font-bold text-indigo-400' }, I18N.t('common.points', { n: state.score })),
+        ]);
+        setTimeout(updateHud, 0);
+        return hud;
+      }
+
+      function updateHud() {
+        const hearts = root.querySelector('#line-hearts');
+        if (hearts) {
+          hearts.innerHTML = '';
+          for (let i = 0; i < 3; i++) {
+            hearts.appendChild(Utils.el('i', { 'data-lucide': 'heart', class: `w-4 h-4 ${i < state.lives ? 'text-rose-500 fill-rose-500' : 'text-slate-700 fill-slate-700'}` }));
+          }
+        }
+        const hintCount = root.querySelector('#line-hint-count');
+        if (hintCount) hintCount.textContent = String(state.hints);
+        const scoreEl = root.querySelector('#line-score');
+        if (scoreEl) scoreEl.textContent = I18N.t('common.points', { n: state.score });
+        Utils.refreshIcons();
+      }
+    }
+
+    function gameOver(state) {
+      const key = scoreKey(state.levelKey, state.roundType);
+      const isBest = Utils.setBest(key, state.score, true);
+      Utils.recordResult(key, state.score);
+      root.innerHTML = '';
+      root.appendChild(Utils.el('div', { class: 'text-center py-10' }, [
+        Utils.el('i', { 'data-lucide': 'flag', class: 'w-10 h-10 mx-auto text-slate-500 mb-3' }),
+        Utils.el('div', { class: 'text-xl font-extrabold text-slate-100' }, I18N.t('line.gameOver')),
+        Utils.el('div', { class: 'text-slate-400 mt-1' }, I18N.t('line.scoreLine', { score: state.score }) + (isBest ? I18N.t('common.newRecord') : '')),
+        Utils.el('div', { class: 'flex gap-2 justify-center mt-6' }, [
+          Utils.el('button', { class: 'px-4 py-2 rounded-md bg-indigo-500 text-white font-semibold hover:bg-indigo-400', onclick: () => startGame(state.levelKey, state.roundType, state.length) }, I18N.t('common.playAgain')),
+          Utils.el('button', { class: 'px-4 py-2 rounded-md bg-slate-800 text-slate-200 font-semibold hover:bg-slate-700', onclick: onExit }, I18N.t('common.toMenu')),
+        ]),
+      ]));
+      Utils.refreshIcons();
+    }
+  }
+
+  return { id: 'line', titleKey: 'game.line.title', descKey: 'game.line.desc', icon: 'rows-3', color: 'bg-indigo-500', historyVariants, mount };
+})();
+</script>
+  <script>
+// Тренажёр "Математика" — вычисли выражение, выбери ответ из 5 вариантов
+const GameMath = (() => {
+  const QUESTIONS_TOTAL = 10;
+  const LEVELS = [
+    { nameKey: 'math.level1', ops: 1, brackets: false, range: 20, time: 10000 },
+    { nameKey: 'math.level2', ops: 2, brackets: false, range: 20, time: 13000 },
+    { nameKey: 'math.level3', ops: 3, brackets: true, range: 12, time: 18000 },
+  ];
+
+  function historyVariants() {
+    return LEVELS.map((lv, i) => ({ key: `math_${i}`, label: I18N.t(lv.nameKey) }));
+  }
+
+  function randOp() { return Utils.sample(['+', '-', '*'], 1)[0]; }
+
+  function apply(a, op, b) {
+    if (op === '+') return a + b;
+    if (op === '-') return a - b;
+    return a * b;
+  }
+
+  // строит случайное выражение из N чисел/операций, опционально со скобками
+  function buildExpr(level) {
+    const nums = [];
+    const ops = [];
+    const count = level.ops + 1;
+    for (let i = 0; i < count; i++) nums.push(Utils.randInt(2, level.range));
+    for (let i = 0; i < level.ops; i++) ops.push(randOp());
+
+    let exprStr = String(nums[0]);
+    let value;
+    if (level.brackets && ops.length >= 2) {
+      const bi = Utils.randInt(0, ops.length - 2);
+      exprStr = wrapBrackets(nums, ops, bi);
+      value = evalBracketed(nums, ops, bi);
+    } else {
+      for (let i = 0; i < ops.length; i++) exprStr += ` ${ops[i]} ${nums[i + 1]}`;
+      value = nums[0];
+      for (let i = 0; i < ops.length; i++) value = apply(value, ops[i], nums[i + 1]);
+    }
+    return { text: exprStr, value };
+  }
+
+  function wrapBrackets(nums, ops, bi) {
+    let s = '';
+    for (let i = 0; i < nums.length; i++) {
+      if (i === bi) s += '(';
+      s += nums[i];
+      if (i === bi + 1) s += ')';
+      if (i < ops.length) s += ` ${ops[i]} `;
+    }
+    return s;
+  }
+
+  function evalBracketed(nums, ops, bi) {
+    const inner = apply(nums[bi], ops[bi], nums[bi + 1]);
+    const seq = [...nums.slice(0, bi), inner, ...nums.slice(bi + 2)];
+    const seqOps = [...ops.slice(0, bi), ...ops.slice(bi + 1)];
+    let value = seq[0];
+    for (let i = 0; i < seqOps.length; i++) value = apply(value, seqOps[i], seq[i + 1]);
+    return value;
+  }
+
+  function buildOptions(correct) {
+    const set = new Set([correct]);
+    while (set.size < 5) {
+      const delta = Utils.randInt(-6, 6) || 1;
+      set.add(correct + delta);
+    }
+    return Utils.shuffle([...set]);
+  }
+
+  function mount(root, onExit) {
+    renderSetup();
+
+    function renderSetup() {
+      root.innerHTML = '';
+      root.appendChild(Utils.el('div', { class: 'text-sm font-semibold text-slate-400 mb-2' }, I18N.t('math.chooseLevel', { n: QUESTIONS_TOTAL })));
+      root.appendChild(Utils.el('div', { class: 'grid grid-cols-1 gap-2 mb-6' }, LEVELS.map((lv, i) => {
+        const best = Utils.getBest(`math_${i}`);
+        return Utils.el('button', {
+          class: 'p-4 rounded-md border border-slate-700 bg-slate-800/50 text-left hover:border-indigo-400 transition',
+          onclick: () => startGame(i),
+        }, [
+          Utils.el('div', { class: 'font-semibold text-slate-100' }, I18N.t(lv.nameKey)),
+          Utils.el('div', { class: 'text-xs text-slate-500' }, best ? I18N.t('math.recordN', { n: best }) : I18N.t('math.notPlayed')),
+        ]);
+      })));
+      Utils.refreshIcons();
+    }
+
+    function startGame(levelIdx) {
+      const state = { levelIdx, score: 0, lives: 3, hints: 2, qIndex: 0, correct: 0 };
+      runQuestion(state);
+    }
+
+    function runQuestion(state) {
+      const level = LEVELS[state.levelIdx];
+      const { text, value } = buildExpr(level);
+      const options = buildOptions(value);
+      let eliminated = [];
+      let answered = false;
+
+      root.innerHTML = '';
+      root.appendChild(Utils.el('div', { class: 'flex items-center justify-between mb-2' }, [
+        Utils.el('div', { class: 'flex items-center gap-1', id: 'math-hearts' }),
+        Utils.el('div', { id: 'math-progress', class: 'text-sm font-semibold text-slate-400' }, I18N.t('math.question', { i: state.qIndex + 1, n: QUESTIONS_TOTAL })),
+      ]));
+      root.appendChild(Utils.el('div', { class: 'flex items-center justify-between mb-6' }, [
+        Utils.el('div', { id: 'math-score', class: 'text-sm font-bold text-indigo-400' }, I18N.t('common.points', { n: state.score })),
+        Utils.el('button', {
+          class: 'flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-md bg-amber-500/15 text-amber-400',
+          onclick: () => useHint(),
+        }, [Utils.el('i', { 'data-lucide': 'lightbulb', class: 'w-4 h-4' }), Utils.el('span', { id: 'math-hint-count' }, ` ${state.hints}`)]),
+      ]));
+
+      const barOuter = Utils.el('div', { class: 'w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mb-6' });
+      const barInner = Utils.el('div', { class: 'h-full bg-emerald-500', style: 'width:100%;transition:width linear' });
+      barOuter.appendChild(barInner);
+      root.appendChild(barOuter);
+
+      root.appendChild(Utils.el('div', { class: 'text-center text-3xl font-extrabold mb-8 pop-in tracking-wide text-slate-100' }, text + ' = ?'));
+
+      const optsWrap = Utils.el('div', { class: 'grid grid-cols-1 gap-2' });
+      root.appendChild(optsWrap);
+      renderOptions();
+      updateHud();
+      Utils.refreshIcons();
+
+      Utils.startBarDrain(barInner, level.time);
+      const timeout = setTimeout(() => handleAnswer(null), level.time);
+
+      function renderOptions() {
+        optsWrap.innerHTML = '';
+        options.forEach(opt => {
+          if (eliminated.includes(opt)) {
+            optsWrap.appendChild(Utils.el('button', { class: 'py-3 rounded-md border border-slate-800 text-slate-700', disabled: 'true' }, String(opt)));
+            return;
+          }
+          optsWrap.appendChild(Utils.el('button', {
+            class: 'py-3 rounded-md border border-slate-700 bg-slate-800/50 font-bold text-lg text-slate-100 hover:border-indigo-400 active:scale-95 transition',
+            onclick: (e) => handleAnswer(opt, e.currentTarget),
+          }, String(opt)));
+        });
+      }
+
+      function handleAnswer(opt, btnEl) {
+        if (answered) return;
+        answered = true;
+        clearTimeout(timeout);
+        if (opt === value) {
+          state.score += 15;
+          state.correct++;
+          if (btnEl) btnEl.classList.add('border-emerald-500', 'bg-emerald-500/10');
+          proceed();
+        } else {
+          state.lives--;
+          if (btnEl) btnEl.classList.add('border-rose-500', 'bg-rose-500/10', 'shake');
+          state.score = Math.max(0, state.score - 5);
+          updateHud();
+          proceed();
+        }
+      }
+
+      function proceed() {
+        state.qIndex++;
+        if (state.lives <= 0 || state.qIndex >= QUESTIONS_TOTAL) {
+          setTimeout(() => gameOver(state), 600);
+        } else {
+          setTimeout(() => runQuestion(state), 600);
+        }
+      }
+
+      function useHint() {
+        if (state.hints <= 0 || answered) return;
+        state.hints--;
+        state.score = Math.max(0, state.score - 10);
+        const wrongOpts = options.filter(o => o !== value && !eliminated.includes(o));
+        eliminated.push(...Utils.sample(wrongOpts, Math.min(2, wrongOpts.length)));
+        renderOptions();
+        updateHud();
+      }
+
+      function updateHud() {
+        const hearts = root.querySelector('#math-hearts');
+        if (hearts) {
+          hearts.innerHTML = '';
+          for (let i = 0; i < 3; i++) hearts.appendChild(Utils.el('i', { 'data-lucide': 'heart', class: `w-4 h-4 ${i < state.lives ? 'text-rose-500 fill-rose-500' : 'text-slate-700 fill-slate-700'}` }));
+        }
+        const scoreEl = root.querySelector('#math-score');
+        if (scoreEl) scoreEl.textContent = I18N.t('common.points', { n: state.score });
+        const hintEl = root.querySelector('#math-hint-count');
+        if (hintEl) hintEl.textContent = ` ${state.hints}`;
+        Utils.refreshIcons();
+      }
+    }
+
+    function gameOver(state) {
+      const key = `math_${state.levelIdx}`;
+      const isBest = Utils.setBest(key, state.score, true);
+      Utils.recordResult(key, state.score);
+      const accuracy = Math.round((state.correct / QUESTIONS_TOTAL) * 100);
+      root.innerHTML = '';
+      root.appendChild(Utils.el('div', { class: 'text-center py-10' }, [
+        Utils.el('i', { 'data-lucide': 'calculator', class: 'w-10 h-10 mx-auto text-slate-500 mb-3' }),
+        Utils.el('div', { class: 'text-xl font-extrabold text-slate-100' }, I18N.t('math.result')),
+        Utils.el('div', { class: 'text-slate-400 mt-1' }, I18N.t('math.correct', { c: state.correct, t: QUESTIONS_TOTAL, pct: accuracy })),
+        Utils.el('div', { class: 'text-slate-400' }, I18N.t('math.scoreLine', { score: state.score }) + (isBest ? I18N.t('common.newRecord') : '')),
+        Utils.el('div', { class: 'flex gap-2 justify-center mt-6' }, [
+          Utils.el('button', { class: 'px-4 py-2 rounded-md bg-indigo-500 text-white font-semibold hover:bg-indigo-400', onclick: () => startGame(state.levelIdx) }, I18N.t('common.playAgain')),
+          Utils.el('button', { class: 'px-4 py-2 rounded-md bg-slate-800 text-slate-200 font-semibold hover:bg-slate-700', onclick: onExit }, I18N.t('common.toMenu')),
+        ]),
+      ]));
+      Utils.refreshIcons();
+    }
+  }
+
+  return { id: 'math', titleKey: 'game.math.title', descKey: 'game.math.desc', icon: 'calculator', color: 'bg-emerald-500', historyVariants, mount };
+})();
+</script>
+  <script>
+// Тренажёр "Пары" — классическая игра на память, найди все пары карточек
+const GamePairs = (() => {
+  const SYMBOL_SETS = {
+    icons: { nameKey: 'pairs.setIcons', pool: ICON_POOL.map(name => ({ id: name, icon: name })) },
+    thai: { nameKey: 'pairs.setThai', pool: THAI_POOL.map(t => ({ id: t.ch, ch: t.ch, tr: t.tr })) },
+  };
+
+  const LEVELS = [
+    { nameKey: 'pairs.levelEasy', cols: 4, rows: 4, memorize: 5000, mistakesAllowed: 6, hints: 2 },
+    { nameKey: 'pairs.levelMedium', cols: 6, rows: 6, memorize: 4000, mistakesAllowed: 4, hints: 1 },
+    { nameKey: 'pairs.levelHard', cols: 6, rows: 8, memorize: 3000, mistakesAllowed: 2, hints: 0 },
+  ];
+
+  function historyVariants() {
+    const arr = [];
+    LEVELS.forEach((lv, i) => {
+      Object.entries(SYMBOL_SETS).forEach(([sk, s]) => {
+        arr.push({ key: `pairs_${i}_${sk}`, label: `${I18N.t(lv.nameKey)} · ${I18N.t(s.nameKey)}` });
+      });
+    });
+    return arr;
+  }
+
+  function tokenNode(token, big) {
+    if (token.icon) {
+      return Utils.el('i', { 'data-lucide': token.icon, class: big ? 'w-6 h-6 sm:w-7 sm:h-7' : 'w-5 h-5' });
+    }
+    return Utils.el('div', { class: 'flex flex-col items-center leading-none' }, [
+      Utils.el('span', { class: `thai ${big ? 'text-xl sm:text-2xl' : 'text-lg'} font-bold` }, token.ch),
+      Utils.el('span', { class: 'text-[8px] text-slate-500 mt-0.5' }, token.tr),
+    ]);
+  }
+
+  function mount(root, onExit) {
+    let symbolKey = 'icons';
+    renderSetup();
+
+    function renderSetup() {
+      root.innerHTML = '';
+      root.appendChild(Utils.el('div', { class: 'mb-5' }, [
+        Utils.el('div', { class: 'text-sm font-semibold text-slate-400 mb-2' }, I18N.t('pairs.symbolSet')),
+        Utils.el('div', { class: 'grid grid-cols-2 gap-2' }, Object.entries(SYMBOL_SETS).map(([key, s]) =>
+          Utils.el('button', {
+            class: `p-3 rounded-md border text-center transition ${symbolKey === key ? 'border-indigo-500 bg-indigo-500/10' : 'border-slate-700 bg-slate-800/50'}`,
+            onclick: () => { symbolKey = key; renderSetup(); },
+          }, Utils.el('div', { class: 'font-semibold text-slate-100 text-sm' }, I18N.t(s.nameKey)))
+        )),
+      ]));
+      root.appendChild(Utils.el('div', { class: 'text-sm font-semibold text-slate-400 mb-2' }, I18N.t('common.chooseLevel')));
+      root.appendChild(Utils.el('div', { class: 'grid grid-cols-1 gap-2' }, LEVELS.map((lv, i) => {
+        const best = Utils.getBest(`pairs_${i}_${symbolKey}`);
+        return Utils.el('button', {
+          class: 'p-4 rounded-md border border-slate-700 bg-slate-800/50 text-left hover:border-indigo-400 transition',
+          onclick: () => startGame(i, symbolKey),
+        }, [
+          Utils.el('div', { class: 'font-semibold text-slate-100' }, `${I18N.t(lv.nameKey)} — ${lv.cols}×${lv.rows}`),
+          Utils.el('div', { class: 'text-xs text-slate-500' }, I18N.t('pairs.memorizeInfo', { s: (lv.memorize / 1000).toFixed(0), m: lv.mistakesAllowed }) + (best ? ` · ${I18N.t('common.record')}: ${best}` : '')),
+        ]);
+      })));
+      Utils.refreshIcons();
+    }
+
+    function startGame(levelIdx, symbolKey) {
+      const level = LEVELS[levelIdx];
+      const pool = SYMBOL_SETS[symbolKey].pool;
+      const total = level.cols * level.rows;
+      const pairsCount = total / 2;
+      const uniq = Utils.sample(pool, pairsCount);
+      const deck = Utils.shuffle([...uniq, ...uniq]).map(token => ({ token, matched: false }));
+
+      const state = { levelIdx, symbolKey, level, deck, mistakes: 0, score: 1000, hints: level.hints, flipped: [], locked: true, startedAt: 0, matchedPairs: 0, timerId: null };
+
+      root.innerHTML = '';
+      root.appendChild(hud());
+      const grid = Utils.el('div', {
+        class: 'grid gap-1.5 no-scrollbar',
+        style: `grid-template-columns:repeat(${level.cols},1fr);`,
+      });
+      root.appendChild(grid);
+
+      const cardEls = state.deck.map((card, i) => {
+        const front = Utils.el('div', { class: 'flip-face front bg-slate-800 border border-slate-700 text-slate-100' }, tokenNode(card.token, true));
+        const back = Utils.el('div', { class: 'flip-face back bg-indigo-500/20 border border-indigo-500/40' }, Utils.el('span', { class: 'text-indigo-300 font-bold' }, '?'));
+        const inner = Utils.el('div', { class: 'flip-inner' }, [front, back]);
+        const el = Utils.el('div', {
+          class: 'flip-card aspect-square cursor-pointer',
+          onclick: () => onCardClick(i),
+        }, inner);
+        grid.appendChild(el);
+        return el;
+      });
+      Utils.refreshIcons();
+
+      // фаза запоминания: карточки открыты
+      const barOuter = root.querySelector('#pairs-bar-outer');
+      const barInner = root.querySelector('#pairs-bar-inner');
+      Utils.startBarDrain(barInner, level.memorize);
+      setTimeout(() => {
+        cardEls.forEach(c => c.classList.add('is-hidden'));
+        setTimeout(() => {
+          state.locked = false;
+          state.startedAt = Date.now();
+          startTimer();
+          barOuter.classList.add('invisible');
+        }, 380);
+      }, level.memorize);
+
+      function startTimer() {
+        state.timerId = setInterval(() => {
+          const timeEl = root.querySelector('#pairs-time');
+          if (timeEl) timeEl.textContent = Utils.fmtTime(Date.now() - state.startedAt);
+        }, 50);
+      }
+
+      function onCardClick(i) {
+        if (state.locked) return;
+        const card = state.deck[i];
+        if (card.matched || state.flipped.includes(i)) return;
+        cardEls[i].classList.remove('is-hidden');
+        state.flipped.push(i);
+        if (state.flipped.length === 2) {
+          state.locked = true;
+          const [a, b] = state.flipped;
+          if (state.deck[a].token.id === state.deck[b].token.id) {
+            state.deck[a].matched = state.deck[b].matched = true;
+            cardEls[a].classList.add('opacity-40');
+            cardEls[b].classList.add('opacity-40');
+            state.matchedPairs++;
+            state.flipped = [];
+            state.locked = false;
+            if (state.matchedPairs === pairsCount) finishGame(state);
+          } else {
+            state.mistakes++;
+            state.score = Math.max(0, state.score - 20);
+            cardEls[a].classList.add('shake');
+            cardEls[b].classList.add('shake');
+            updateHud(state);
+            setTimeout(() => {
+              cardEls[a].classList.remove('shake');
+              cardEls[b].classList.remove('shake');
+              cardEls[a].classList.add('is-hidden');
+              cardEls[b].classList.add('is-hidden');
+              state.flipped = [];
+              state.locked = false;
+              if (state.mistakes >= level.mistakesAllowed) gameOver(state);
+            }, 700);
+          }
+        }
+        updateHud(state);
+      }
+
+      function useHint() {
+        if (state.hints <= 0 || state.locked || state.flipped.length) return;
+        state.hints--;
+        state.score = Math.max(0, state.score - 60);
+        state.locked = true;
+        cardEls.forEach((c, i) => { if (!state.deck[i].matched) c.classList.remove('is-hidden'); });
+        setTimeout(() => {
+          cardEls.forEach((c, i) => { if (!state.deck[i].matched) c.classList.add('is-hidden'); });
+          state.locked = false;
+        }, 1000);
+        updateHud(state);
+      }
+
+      function hud() {
+        const wrap = Utils.el('div', { class: 'mb-3' }, [
+          Utils.el('div', { class: 'flex items-center justify-between mb-2' }, [
+            Utils.el('div', { class: 'text-sm font-semibold text-slate-400' }, I18N.t('pairs.label')),
+            Utils.el('div', { id: 'pairs-time', class: 'text-sm font-mono text-slate-400' }, '0.00с'),
+            Utils.el('button', {
+              class: 'flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-md bg-amber-500/15 text-amber-400 disabled:opacity-30',
+              onclick: () => useHint(),
+            }, [Utils.el('i', { 'data-lucide': 'lightbulb', class: 'w-4 h-4' }), Utils.el('span', { id: 'pairs-hints' }, ` ${state.hints}`)]),
+          ]),
+          Utils.el('div', { id: 'pairs-mistakes', class: 'text-xs text-rose-400 mb-2' }, ''),
+          Utils.el('div', { id: 'pairs-bar-outer', class: 'w-full h-1.5 bg-slate-800 rounded-full overflow-hidden' }, Utils.el('div', { id: 'pairs-bar-inner', class: 'h-full bg-indigo-500', style: 'width:100%;transition:width linear' })),
+        ]);
+        setTimeout(() => updateHud(state), 0);
+        Utils.refreshIcons();
+        return wrap;
+      }
+
+      function updateHud(state) {
+        const mistakesEl = root.querySelector('#pairs-mistakes');
+        if (mistakesEl) mistakesEl.textContent = I18N.t('pairs.mistakes', { m: state.mistakes, allowed: level.mistakesAllowed });
+        const hintsEl = root.querySelector('#pairs-hints');
+        if (hintsEl) hintsEl.textContent = ` ${state.hints}`;
+        Utils.refreshIcons();
+      }
+    }
+
+    function finishGame(state) {
+      clearInterval(state.timerId);
+      const elapsed = Date.now() - state.startedAt;
+      const finalScore = Math.max(50, state.score - Math.floor(elapsed / 1000) * 5);
+      const key = `pairs_${state.levelIdx}_${state.symbolKey}`;
+      const isBest = Utils.setBest(key, finalScore, true);
+      Utils.recordResult(key, finalScore);
+      showResult(state, true, finalScore, isBest, elapsed);
+    }
+
+    function gameOver(state) {
+      clearInterval(state.timerId);
+      showResult(state, false, 0, false, Date.now() - state.startedAt);
+    }
+
+    function showResult(state, won, finalScore, isBest, elapsed) {
+      root.innerHTML = '';
+      root.appendChild(Utils.el('div', { class: 'text-center py-10' }, [
+        Utils.el('i', { 'data-lucide': won ? 'party-popper' : 'flag', class: `w-10 h-10 mx-auto mb-3 ${won ? 'text-emerald-400' : 'text-slate-500'}` }),
+        Utils.el('div', { class: 'text-xl font-extrabold text-slate-100' }, won ? I18N.t('pairs.won') : I18N.t('pairs.lost')),
+        Utils.el('div', { class: 'text-slate-400 mt-1' }, won ? I18N.t('pairs.wonInfo', { t: Utils.fmtTime(elapsed), s: finalScore }) + (isBest ? I18N.t('common.newRecord') : '') : I18N.t('pairs.tryAgain')),
+        Utils.el('div', { class: 'flex gap-2 justify-center mt-6' }, [
+          Utils.el('button', { class: 'px-4 py-2 rounded-md bg-indigo-500 text-white font-semibold hover:bg-indigo-400', onclick: () => startGame(state.levelIdx, state.symbolKey) }, I18N.t('common.playAgain')),
+          Utils.el('button', { class: 'px-4 py-2 rounded-md bg-slate-800 text-slate-200 font-semibold hover:bg-slate-700', onclick: onExit }, I18N.t('common.toMenu')),
+        ]),
+      ]));
+      Utils.refreshIcons();
+    }
+  }
+
+  return { id: 'pairs', titleKey: 'game.pairs.title', descKey: 'game.pairs.desc', icon: 'layout-grid', color: 'bg-rose-500', historyVariants, mount };
+})();
+</script>
+  <script>
+// Тренажёр "Таблицы Шульте" — находи числа по порядку, не отводя взгляд от центра
+const GameSchulte = (() => {
+  // сетки всегда чётные — иначе точка фиксации в центре закрывает число
+  const LEVELS = [
+    { nameKey: 'schulte.levelClassic', descKey: 'schulte.levelClassicDesc', size: 4, mode: 'static' },
+    { nameKey: 'schulte.levelMoving', descKey: 'schulte.levelMovingDesc', size: 6, mode: 'reshuffle-order' },
+    { nameKey: 'schulte.levelPeriphery', descKey: 'schulte.levelPeripheryDesc', size: 8, mode: 'reshuffle-random' },
+  ];
+
+  function historyVariants() {
+    return LEVELS.map((lv, i) => ({ key: `schulte_${i}`, label: I18N.t(lv.nameKey) }));
+  }
+
+  function mount(root, onExit) {
+    renderSetup();
+
+    function renderSetup() {
+      root.innerHTML = '';
+      root.appendChild(Utils.el('div', { class: 'text-sm font-semibold text-slate-400 mb-2' }, I18N.t('common.chooseLevel')));
+      root.appendChild(Utils.el('div', { class: 'grid grid-cols-1 gap-2' }, LEVELS.map((lv, i) => {
+        const best = Utils.getBest(`schulte_${i}`);
+        return Utils.el('button', {
+          class: 'p-4 rounded-md border border-slate-700 bg-slate-800/50 text-left hover:border-indigo-400 transition',
+          onclick: () => startGame(i),
+        }, [
+          Utils.el('div', { class: 'font-semibold text-slate-100' }, `${I18N.t(lv.nameKey)} — ${lv.size}×${lv.size}`),
+          Utils.el('div', { class: 'text-xs text-slate-500' }, I18N.t(lv.descKey) + (best ? I18N.t('schulte.recordSuffix', { t: Utils.fmtTime(Number(best)) }) : '')),
+        ]);
+      })));
+    }
+
+    function startGame(levelIdx) {
+      const level = LEVELS[levelIdx];
+      const total = level.size * level.size;
+      const state = {
+        levelIdx, level, total,
+        layout: Utils.shuffle(Array.from({ length: total }, (_, i) => i + 1)),
+        found: new Set(),
+        next: 1, mistakes: 0, hints: 2, hintsUsed: 0,
+        target: null, startedAt: Date.now(), timerId: null,
+      };
+      if (level.mode === 'reshuffle-random') state.target = state.layout[Utils.randInt(0, total - 1)];
+
+      root.innerHTML = '';
+      root.appendChild(hud(state));
+
+      const gridWrap = Utils.el('div', { class: 'relative aspect-square' });
+      root.appendChild(gridWrap);
+      renderGrid(state, gridWrap);
+
+      state.timerId = setInterval(() => {
+        const t = root.querySelector('#schulte-time');
+        if (t) t.textContent = Utils.fmtTime(Date.now() - state.startedAt);
+      }, 50);
+
+      function useHint() {
+        if (state.hints <= 0) return;
+        state.hints--;
+        state.hintsUsed++;
+        const expected = level.mode === 'reshuffle-random' ? state.target : state.next;
+        const idx = state.layout.indexOf(expected);
+        const cell = gridWrap.querySelector(`[data-idx="${idx}"]`);
+        if (cell) {
+          cell.classList.add('ring-2', 'ring-amber-400');
+          setTimeout(() => cell.classList.remove('ring-2', 'ring-amber-400'), 800);
+        }
+        updateHud(state);
+      }
+
+      function onCellClick(idx) {
+        const number = state.layout[idx];
+        if (state.found.has(number)) return;
+        const expected = level.mode === 'reshuffle-random' ? state.target : state.next;
+        const cell = gridWrap.querySelector(`[data-idx="${idx}"]`);
+        if (number === expected) {
+          state.found.add(number);
+          state.next++;
+          if (state.found.size === state.total) { finishGame(state); return; }
+          if (level.mode === 'reshuffle-random') {
+            const remaining = state.layout.filter(n => !state.found.has(n));
+            state.target = remaining[Utils.randInt(0, remaining.length - 1)];
+          }
+          // перемешиваем всю сетку целиком — найденные клетки остаются видимыми,
+          // но не закрепляются на месте, чтобы взгляду не становилось легче с каждым разом
+          if (level.mode !== 'static') state.layout = Utils.shuffle(state.layout);
+          renderGrid(state, gridWrap);
+        } else {
+          state.mistakes++;
+          if (cell) { cell.classList.add('shake', 'bg-rose-500/10'); setTimeout(() => cell.classList.remove('shake', 'bg-rose-500/10'), 400); }
+        }
+        updateHud(state);
+      }
+
+      function renderGrid(state, wrap) {
+        wrap.innerHTML = '';
+        const grid = Utils.el('div', {
+          class: 'grid gap-1.5 w-full h-full',
+          style: `grid-template-columns:repeat(${level.size},1fr);`,
+        });
+        state.layout.forEach((num, idx) => {
+          const done = state.found.has(num);
+          const cell = Utils.el('button', {
+            'data-idx': idx,
+            class: `aspect-square flex items-center justify-center rounded-md border font-bold text-base sm:text-lg transition ${done ? 'border-slate-800 bg-slate-800/40 text-slate-600 cursor-default' : 'border-slate-700 bg-slate-800 hover:border-indigo-400 active:scale-95 text-slate-100'}`,
+            onclick: () => onCellClick(idx),
+          }, String(num));
+          grid.appendChild(cell);
+        });
+        wrap.appendChild(grid);
+
+        if (level.mode === 'reshuffle-random') {
+          wrap.appendChild(Utils.el('div', {
+            class: 'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none w-11 h-11 rounded-md bg-slate-100 text-slate-900 flex items-center justify-center font-extrabold text-lg shadow-lg',
+          }, String(state.target)));
+        } else {
+          wrap.appendChild(Utils.el('div', {
+            class: 'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none w-3.5 h-3.5 rounded-full bg-rose-500 pulse-dot',
+          }));
+        }
+      }
+
+      function hud(state) {
+        const wrap = Utils.el('div', { class: 'flex items-center justify-between mb-3' }, [
+          Utils.el('div', { id: 'schulte-time', class: 'text-sm font-mono font-bold text-slate-200' }, '0.00с'),
+          Utils.el('div', { id: 'schulte-mistakes', class: 'text-xs text-rose-400' }, ''),
+          Utils.el('button', {
+            class: 'flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-md bg-amber-500/15 text-amber-400',
+            onclick: () => useHint(),
+          }, [Utils.el('i', { 'data-lucide': 'lightbulb', class: 'w-4 h-4' }), Utils.el('span', { id: 'schulte-hints' }, ` ${state.hints}`)]),
+        ]);
+        setTimeout(() => updateHud(state), 0);
+        return wrap;
+      }
+
+      function updateHud(state) {
+        const m = root.querySelector('#schulte-mistakes');
+        if (m) m.textContent = I18N.t('schulte.mistakes', { n: state.mistakes });
+        const h = root.querySelector('#schulte-hints');
+        if (h) h.textContent = ` ${state.hints}`;
+        Utils.refreshIcons();
+      }
+    }
+
+    function finishGame(state) {
+      clearInterval(state.timerId);
+      const elapsed = Date.now() - state.startedAt;
+      const adjusted = elapsed + state.mistakes * 2000 + state.hintsUsed * 3000;
+      const key = `schulte_${state.levelIdx}`;
+      const isBest = Utils.setBest(key, adjusted, false);
+      Utils.recordResult(key, adjusted);
+      root.innerHTML = '';
+      root.appendChild(Utils.el('div', { class: 'text-center py-10' }, [
+        Utils.el('i', { 'data-lucide': 'target', class: 'w-10 h-10 mx-auto text-emerald-400 mb-3' }),
+        Utils.el('div', { class: 'text-xl font-extrabold text-slate-100' }, I18N.t('schulte.won')),
+        Utils.el('div', { class: 'text-slate-400 mt-1' }, I18N.t('schulte.wonInfo', { t: Utils.fmtTime(elapsed), n: state.mistakes }) + (isBest ? I18N.t('common.newRecord') : '')),
+        Utils.el('div', { class: 'flex gap-2 justify-center mt-6' }, [
+          Utils.el('button', { class: 'px-4 py-2 rounded-md bg-indigo-500 text-white font-semibold hover:bg-indigo-400', onclick: () => startGame(state.levelIdx) }, I18N.t('common.playAgain')),
+          Utils.el('button', { class: 'px-4 py-2 rounded-md bg-slate-800 text-slate-200 font-semibold hover:bg-slate-700', onclick: onExit }, I18N.t('common.toMenu')),
+        ]),
+      ]));
+      Utils.refreshIcons();
+    }
+  }
+
+  return { id: 'schulte', titleKey: 'game.schulte.title', descKey: 'game.schulte.desc', icon: 'grid-3x3', color: 'bg-amber-500', historyVariants, mount };
+})();
+</script>
+  <script>
+// Тренажёр "Слова" — запоминание и воспроизведение набора слов (англ./тайск.)
+// Транскрипция тайского — упрощённая RTGS (официальная система романизации Таиланда).
+const GameWords = (() => {
+  const WORD_PAIRS = [
+    // местоимения
+    { en: 'I', th: 'ฉัน', tr: 'chan' }, { en: 'you', th: 'คุณ', tr: 'khun' },
+    { en: 'he', th: 'เขา', tr: 'khao' }, { en: 'she', th: 'เธอ', tr: 'thoe' },
+    { en: 'we', th: 'เรา', tr: 'rao' }, { en: 'they', th: 'พวกเขา', tr: 'phuak khao' },
+    { en: 'it', th: 'มัน', tr: 'man' },
+    // вопросительные слова
+    { en: 'what', th: 'อะไร', tr: 'a rai' }, { en: 'who', th: 'ใคร', tr: 'khrai' },
+    { en: 'where', th: 'ที่ไหน', tr: 'thii nai' }, { en: 'when', th: 'เมื่อไหร่', tr: 'muea rai' },
+    { en: 'why', th: 'ทำไม', tr: 'tham mai' }, { en: 'how', th: 'ยังไง', tr: 'yang ngai' },
+    { en: 'which', th: 'ไหน', tr: 'nai' },
+    // да/нет/вежливость
+    { en: 'yes', th: 'ใช่', tr: 'chai' }, { en: 'no', th: 'ไม่', tr: 'mai' },
+    { en: 'please', th: 'ขอ', tr: 'kho' }, { en: 'thanks', th: 'ขอบคุณ', tr: 'khop khun' },
+    { en: 'sorry', th: 'ขอโทษ', tr: 'kho thot' },
+    // числа
+    { en: 'one', th: 'หนึ่ง', tr: 'nueng' }, { en: 'two', th: 'สอง', tr: 'song' },
+    { en: 'three', th: 'สาม', tr: 'saam' }, { en: 'four', th: 'สี่', tr: 'sii' },
+    { en: 'five', th: 'ห้า', tr: 'haa' }, { en: 'six', th: 'หก', tr: 'hok' },
+    { en: 'seven', th: 'เจ็ด', tr: 'chet' }, { en: 'eight', th: 'แปด', tr: 'paet' },
+    { en: 'nine', th: 'เก้า', tr: 'kao' }, { en: 'ten', th: 'สิบ', tr: 'sip' },
+    // время
+    { en: 'day', th: 'วัน', tr: 'wan' }, { en: 'night', th: 'คืน', tr: 'khuen' },
+    { en: 'time', th: 'เวลา', tr: 'we laa' }, { en: 'year', th: 'ปี', tr: 'pii' },
+    { en: 'now', th: 'ตอนนี้', tr: 'ton nii' }, { en: 'today', th: 'วันนี้', tr: 'wan nii' },
+    { en: 'tomorrow', th: 'พรุ่งนี้', tr: 'phrung nii' },
+    // глаголы
+    { en: 'go', th: 'ไป', tr: 'pai' }, { en: 'come', th: 'มา', tr: 'maa' },
+    { en: 'eat', th: 'กิน', tr: 'kin' }, { en: 'drink', th: 'ดื่ม', tr: 'duem' },
+    { en: 'see', th: 'เห็น', tr: 'hen' }, { en: 'look', th: 'ดู', tr: 'duu' },
+    { en: 'know', th: 'รู้', tr: 'ruu' }, { en: 'like', th: 'ชอบ', tr: 'chop' },
+    { en: 'love', th: 'รัก', tr: 'rak' }, { en: 'want', th: 'อยาก', tr: 'yaak' },
+    { en: 'have', th: 'มี', tr: 'mii' }, { en: 'do', th: 'ทำ', tr: 'tham' },
+    { en: 'say', th: 'พูด', tr: 'phuut' }, { en: 'give', th: 'ให้', tr: 'hai' },
+    { en: 'take', th: 'เอา', tr: 'ao' }, { en: 'buy', th: 'ซื้อ', tr: 'sue' },
+    { en: 'sell', th: 'ขาย', tr: 'khaai' }, { en: 'work', th: 'ทำงาน', tr: 'tham ngaan' },
+    { en: 'sleep', th: 'นอน', tr: 'non' }, { en: 'walk', th: 'เดิน', tr: 'doen' },
+    { en: 'run', th: 'วิ่ง', tr: 'wing' }, { en: 'sit', th: 'นั่ง', tr: 'nang' },
+    { en: 'stand', th: 'ยืน', tr: 'yuen' }, { en: 'open', th: 'เปิด', tr: 'poet' },
+    { en: 'close', th: 'ปิด', tr: 'pit' }, { en: 'read', th: 'อ่าน', tr: 'aan' },
+    { en: 'write', th: 'เขียน', tr: 'khian' }, { en: 'talk', th: 'คุย', tr: 'khui' },
+    { en: 'listen', th: 'ฟัง', tr: 'fang' }, { en: 'play', th: 'เล่น', tr: 'len' },
+    { en: 'help', th: 'ช่วย', tr: 'chuai' }, { en: 'wait', th: 'รอ', tr: 'ro' },
+    { en: 'stop', th: 'หยุด', tr: 'yut' }, { en: 'start', th: 'เริ่ม', tr: 'roem' },
+    { en: 'finish', th: 'เสร็จ', tr: 'set' }, { en: 'live', th: 'อยู่', tr: 'yuu' },
+    { en: 'think', th: 'คิด', tr: 'khit' }, { en: 'understand', th: 'เข้าใจ', tr: 'khao jai' },
+    { en: 'remember', th: 'จำ', tr: 'cham' }, { en: 'forget', th: 'ลืม', tr: 'luem' },
+    { en: 'learn', th: 'เรียน', tr: 'rian' }, { en: 'teach', th: 'สอน', tr: 'son' },
+    // существительные
+    { en: 'water', th: 'น้ำ', tr: 'naam' }, { en: 'food', th: 'อาหาร', tr: 'aa haan' },
+    { en: 'rice', th: 'ข้าว', tr: 'khaao' }, { en: 'house', th: 'บ้าน', tr: 'baan' },
+    { en: 'school', th: 'โรงเรียน', tr: 'rong rian' }, { en: 'book', th: 'หนังสือ', tr: 'nang sue' },
+    { en: 'money', th: 'เงิน', tr: 'ngoen' }, { en: 'friend', th: 'เพื่อน', tr: 'phuean' },
+    { en: 'family', th: 'ครอบครัว', tr: 'khrop khrua' }, { en: 'mother', th: 'แม่', tr: 'mae' },
+    { en: 'father', th: 'พ่อ', tr: 'pho' }, { en: 'child', th: 'เด็ก', tr: 'dek' },
+    { en: 'name', th: 'ชื่อ', tr: 'chue' }, { en: 'dog', th: 'หมา', tr: 'maa' },
+    { en: 'cat', th: 'แมว', tr: 'maeo' }, { en: 'car', th: 'รถ', tr: 'rot' },
+    { en: 'road', th: 'ถนน', tr: 'tha non' }, { en: 'city', th: 'เมือง', tr: 'mueang' },
+    { en: 'country', th: 'ประเทศ', tr: 'pra thet' }, { en: 'world', th: 'โลก', tr: 'lok' },
+    { en: 'moon', th: 'ดวงจันทร์', tr: 'duang chan' }, { en: 'star', th: 'ดาว', tr: 'daao' },
+    { en: 'sky', th: 'ฟ้า', tr: 'faa' }, { en: 'rain', th: 'ฝน', tr: 'fon' },
+    { en: 'fire', th: 'ไฟ', tr: 'fai' }, { en: 'tree', th: 'ต้นไม้', tr: 'ton mai' },
+    { en: 'flower', th: 'ดอกไม้', tr: 'dok mai' }, { en: 'color', th: 'สี', tr: 'sii' },
+    { en: 'heart', th: 'หัวใจ', tr: 'hua jai' }, { en: 'head', th: 'หัว', tr: 'hua' },
+    { en: 'hand', th: 'มือ', tr: 'mue' }, { en: 'eye', th: 'ตา', tr: 'taa' },
+    // прилагательные
+    { en: 'good', th: 'ดี', tr: 'dii' }, { en: 'bad', th: 'แย่', tr: 'yae' },
+    { en: 'big', th: 'ใหญ่', tr: 'yai' }, { en: 'small', th: 'เล็ก', tr: 'lek' },
+    { en: 'new', th: 'ใหม่', tr: 'mai' }, { en: 'old', th: 'เก่า', tr: 'kao' },
+    { en: 'hot', th: 'ร้อน', tr: 'ron' }, { en: 'cold', th: 'หนาว', tr: 'naao' },
+    { en: 'happy', th: 'ดีใจ', tr: 'dii jai' }, { en: 'sad', th: 'เศร้า', tr: 'sao' },
+    { en: 'beautiful', th: 'สวย', tr: 'suai' }, { en: 'easy', th: 'ง่าย', tr: 'ngaai' },
+    { en: 'difficult', th: 'ยาก', tr: 'yaak' }, { en: 'fast', th: 'เร็ว', tr: 'reo' },
+    { en: 'slow', th: 'ช้า', tr: 'chaa' }, { en: 'near', th: 'ใกล้', tr: 'klai' },
+    { en: 'far', th: 'ไกล', tr: 'klai' },
+    // прочее короткое и частое
+    { en: 'here', th: 'ที่นี่', tr: 'thii nii' }, { en: 'there', th: 'ที่นั่น', tr: 'thii nan' },
+    { en: 'more', th: 'อีก', tr: 'iik' }, { en: 'all', th: 'ทั้งหมด', tr: 'thang mot' },
+    { en: 'very', th: 'มาก', tr: 'maak' },
+  ];
+
+  const LEVELS = {
+    en: { nameKey: 'words.setEn', pool: WORD_PAIRS.map(w => ({ id: 'en_' + w.en, main: w.en, sub: `${w.th} · ${w.tr}`, thai: false })) },
+    th: { nameKey: 'words.setTh', pool: WORD_PAIRS.map(w => ({ id: 'th_' + w.th, main: w.th, sub: `${w.tr} · ${w.en}`, thai: true })) },
+  };
+
+  const ROUND_TYPES = {
+    forward: { nameKey: 'words.roundForward', descKey: 'words.roundForwardDesc' },
+    reverse: { nameKey: 'words.roundReverse', descKey: 'words.roundReverseDesc' },
+    guess: { nameKey: 'words.roundGuess', descKey: 'words.roundGuessDesc' },
+    combo: { nameKey: 'words.roundCombo', descKey: 'words.roundComboDesc' },
+  };
+
+  const LENGTHS = [3, 4, 5, 6, 7, 8];
+
+  function phasesFor(roundType) {
+    return roundType === 'combo' ? ['forward', 'reverse', 'guess'] : [roundType];
+  }
+
+  function historyVariants() {
+    const arr = [];
+    Object.entries(LEVELS).forEach(([lk, lv]) => {
+      Object.entries(ROUND_TYPES).forEach(([rk, rt]) => {
+        arr.push({ key: `words_${lk}_${rk}`, label: `${I18N.t(lv.nameKey)} · ${I18N.t(rt.nameKey)}` });
+      });
+    });
+    return arr;
+  }
+
+  // карточки — не фиксированного размера (слова разной длины), поэтому вместо
+  // 3D-переворота используется простая смена контента с pop-in анимацией
+  function maybeSpeak(token) {
+    if (!Utils.getVoiceEnabled() || !token) return;
+    Utils.speak(token.main, token.thai ? 'th-TH' : 'en-US');
+  }
+
+  function renderCard(cardEl, token, variant) {
+    cardEl.dataset.variant = variant;
+    cardEl.classList.remove('pop-in');
+    if (variant === 'hidden') {
+      cardEl.className = 'min-w-[52px] h-14 sm:h-16 px-2 rounded-md border border-slate-700 bg-slate-800 flex items-center justify-center text-slate-600 font-bold';
+      cardEl.textContent = '?';
+    } else {
+      const tint = variant === 'revealed' ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-indigo-500/40 bg-indigo-500/10';
+      cardEl.className = `flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 min-h-14 sm:min-h-16 rounded-md border ${tint}`;
+      cardEl.innerHTML = '';
+      cardEl.appendChild(Utils.el('span', { class: `${token.thai ? 'thai' : ''} font-bold text-sm sm:text-base text-slate-100 whitespace-nowrap` }, token.main));
+      cardEl.appendChild(Utils.el('span', { class: 'text-[9px] text-slate-500 whitespace-nowrap' }, token.sub));
+    }
+    // принудительный reflow, чтобы pop-in анимация перезапускалась при каждом вызове,
+    // а не оставалась "уже применённой" с точки зрения браузера
+    void cardEl.offsetWidth;
+    cardEl.classList.add('pop-in');
+  }
+
+  function keyboardButton(token, onClick) {
+    const btn = Utils.el('button', {
+      class: 'flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-md border border-slate-700 bg-slate-800 hover:border-indigo-400 active:scale-95 transition',
+      onclick: onClick,
+    }, [
+      Utils.el('span', { class: `${token.thai ? 'thai' : ''} font-bold text-sm text-slate-100 whitespace-nowrap` }, token.main),
+      Utils.el('span', { class: 'text-[8px] text-slate-500 whitespace-nowrap' }, token.sub),
+    ]);
+    btn.dataset.id = token.id;
+    return btn;
+  }
+
+  function mount(root, onExit) {
+    let langKey = 'en';
+    let roundType = 'forward';
+    let length = 4;
+
+    renderSetup();
+
+    function renderSetup() {
+      root.innerHTML = '';
+      root.appendChild(Utils.el('div', { class: 'mb-5' }, [
+        Utils.el('div', { class: 'text-sm font-semibold text-slate-400 mb-2' }, I18N.t('words.language')),
+        Utils.el('div', { class: 'grid grid-cols-1 gap-2' }, Object.entries(LEVELS).map(([key, lv]) =>
+          Utils.el('button', {
+            class: `p-3 rounded-md border text-left transition ${langKey === key ? 'border-indigo-500 bg-indigo-500/10' : 'border-slate-700 bg-slate-800/50'}`,
+            onclick: () => { langKey = key; renderSetup(); },
+          }, [Utils.el('div', { class: 'font-semibold text-slate-100' }, I18N.t(lv.nameKey)), Utils.el('div', { class: 'text-xs text-slate-500' }, I18N.t('words.wordsInSet', { n: lv.pool.length }))])
+        )),
+      ]));
+      root.appendChild(Utils.el('div', { class: 'mb-5' }, [
+        Utils.el('div', { class: 'text-sm font-semibold text-slate-400 mb-2' }, I18N.t('words.wordCount')),
+        Utils.el('div', { class: 'grid grid-cols-3 gap-2' }, LENGTHS.map(n =>
+          Utils.el('button', {
+            class: `py-2 rounded-md border font-bold transition ${length === n ? 'border-indigo-500 bg-indigo-500/10 text-slate-100' : 'border-slate-700 bg-slate-800/50 text-slate-300'}`,
+            onclick: () => { length = n; renderSetup(); },
+          }, String(n))
+        )),
+      ]));
+      root.appendChild(Utils.el('div', { class: 'mb-6' }, [
+        Utils.el('div', { class: 'text-sm font-semibold text-slate-400 mb-2' }, I18N.t('words.roundType')),
+        Utils.el('div', { class: 'grid grid-cols-1 gap-2' }, Object.entries(ROUND_TYPES).map(([key, rt]) =>
+          Utils.el('button', {
+            class: `p-3 rounded-md border text-left transition ${roundType === key ? 'border-indigo-500 bg-indigo-500/10' : 'border-slate-700 bg-slate-800/50'}`,
+            onclick: () => { roundType = key; renderSetup(); },
+          }, [Utils.el('div', { class: 'font-semibold text-slate-100' }, I18N.t(rt.nameKey)), Utils.el('div', { class: 'text-xs text-slate-500' }, I18N.t(rt.descKey))])
+        )),
+      ]));
+      root.appendChild(Utils.buildVoiceToggle(renderSetup));
+      root.appendChild(Utils.el('button', {
+        class: 'w-full py-3 rounded-md bg-indigo-500 text-white font-bold hover:bg-indigo-400 active:scale-[.98] transition',
+        onclick: () => startGame(langKey, roundType, length),
+      }, I18N.t('words.start')));
+      Utils.refreshIcons();
+    }
+
+    function startGame(langKey, roundType, length) {
+      const state = {
+        langKey, roundType,
+        pool: LEVELS[langKey].pool,
+        length,
+        score: 0,
+        lives: 3,
+        hints: 3,
+        round: 1,
+      };
+      playRound(state);
+    }
+
+    function scoreKey(langKey, roundType) { return `words_${langKey}_${roundType}`; }
+
+    function playRound(state) {
+      const sequence = Utils.sample(state.pool, state.length);
+      const phases = phasesFor(state.roundType);
+      playPhase(state, sequence, phases, 0, true);
+    }
+
+    function playPhase(state, sequence, phases, phaseIdx, doStudy) {
+      const phaseType = phases[phaseIdx];
+      const noiseCount = Math.min(state.pool.length - state.length, 4 + Math.floor(state.length / 2));
+      const noise = Utils.sample(state.pool.filter(t => !sequence.includes(t)), Math.max(0, noiseCount));
+      const keyboardTokens = Utils.shuffle([...sequence, ...noise]);
+
+      let askOrder;
+      if (phaseType === 'forward') askOrder = sequence.map((_, i) => i);
+      else if (phaseType === 'reverse') askOrder = sequence.map((_, i) => i).reverse();
+      else askOrder = [Utils.randInt(0, sequence.length - 1)];
+
+      let askPtr = 0;
+      const studyTime = 1400 + state.length * 1300;
+
+      root.innerHTML = '';
+      root.appendChild(header());
+
+      const isCombo = phases.length > 1;
+      const info = Utils.el('div', { class: 'text-center text-sm text-slate-400 mb-3' },
+        isCombo ? I18N.t('words.phase', { i: phaseIdx + 1, n: phases.length, name: I18N.t(ROUND_TYPES[phaseType].nameKey) }) : I18N.t(ROUND_TYPES[phaseType].descKey));
+      root.appendChild(info);
+
+      const barOuter = Utils.el('div', { class: 'w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mb-4' });
+      const barInner = Utils.el('div', { class: 'h-full bg-indigo-500', style: 'width:100%;transition:width linear' });
+      barOuter.appendChild(barInner);
+      if (!doStudy) barOuter.classList.add('invisible');
+      root.appendChild(barOuter);
+
+      const cardsRow = Utils.el('div', { class: 'flex flex-wrap justify-center gap-2 mb-6' });
+      const cardEls = sequence.map((tok, i) => {
+        const card = Utils.el('div', { 'data-i': i });
+        renderCard(card, tok, doStudy ? 'study' : 'hidden');
+        card.addEventListener('click', () => { if (card.dataset.variant !== 'hidden') maybeSpeak(tok); });
+        cardsRow.appendChild(card);
+        return card;
+      });
+      root.appendChild(cardsRow);
+
+      const keyboardWrap = Utils.el('div', { class: 'flex flex-wrap gap-2 justify-center' });
+      root.appendChild(keyboardWrap);
+      Utils.refreshIcons();
+
+      if (doStudy) {
+        Utils.startBarDrain(barInner, studyTime);
+        const studyTimeout = setTimeout(() => {
+          cardEls.forEach(c => renderCard(c, null, 'hidden'));
+          setTimeout(() => showKeyboard(), 200);
+        }, studyTime);
+        state._studyTimeout = studyTimeout;
+      } else {
+        showKeyboard();
+      }
+
+      function showKeyboard() {
+        highlightTarget();
+        keyboardTokens.forEach(tok => keyboardWrap.appendChild(keyboardButton(tok, (e) => { maybeSpeak(tok); handleGuess(tok, e.currentTarget); })));
+        Utils.refreshIcons();
+      }
+
+      function highlightTarget() {
+        cardEls.forEach(c => c.classList.remove('ring-2', 'ring-amber-400'));
+        if (askPtr < askOrder.length) {
+          cardEls[askOrder[askPtr]].classList.add('ring-2', 'ring-amber-400');
+        }
+      }
+
+      function handleGuess(tok, btn) {
+        if (askPtr >= askOrder.length) return;
+        const targetIdx = askOrder[askPtr];
+        const correct = sequence[targetIdx].id === tok.id;
+        if (correct) {
+          renderCard(cardEls[targetIdx], sequence[targetIdx], 'revealed');
+          state.score += 10 + state.length;
+          askPtr++;
+          highlightTarget();
+          updateHud();
+          if (askPtr >= askOrder.length) advancePhase();
+        } else {
+          state.lives--;
+          btn.classList.add('shake');
+          setTimeout(() => btn.classList.remove('shake'), 500);
+          state.score = Math.max(0, state.score - 5);
+          updateHud();
+          if (state.lives <= 0) gameOver(state);
+        }
+      }
+
+      function advancePhase() {
+        clearTimeout(state._studyTimeout);
+        setTimeout(() => {
+          if (phaseIdx + 1 < phases.length) {
+            playPhase(state, sequence, phases, phaseIdx + 1, false);
+          } else {
+            state.round++;
+            playRound(state);
+          }
+        }, 900);
+      }
+
+      function useHint() {
+        if (state.hints <= 0 || askPtr >= askOrder.length) return;
+        state.hints--;
+        state.score = Math.max(0, state.score - 15);
+        const targetIdx = askOrder[askPtr];
+        renderCard(cardEls[targetIdx], sequence[targetIdx], 'revealed');
+        askPtr++;
+        highlightTarget();
+        updateHud();
+        if (askPtr >= askOrder.length) advancePhase();
+      }
+
+      function header() {
+        const hud = Utils.el('div', { class: 'flex items-center justify-between mb-4' }, [
+          Utils.el('div', { class: 'text-sm font-semibold text-slate-400' }, I18N.t('words.round', { n: state.round })),
+          Utils.el('div', { id: 'words-hearts', class: 'flex items-center gap-1' }),
+          Utils.el('button', { id: 'words-hint-btn', class: 'flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-md bg-amber-500/15 text-amber-400', onclick: () => useHint() }, [
+            Utils.el('i', { 'data-lucide': 'lightbulb', class: 'w-4 h-4' }),
+            Utils.el('span', { id: 'words-hint-count' }, String(state.hints)),
+          ]),
+          Utils.el('span', { id: 'words-score', class: 'text-sm font-bold text-indigo-400' }, I18N.t('common.points', { n: state.score })),
+        ]);
+        setTimeout(updateHud, 0);
+        return hud;
+      }
+
+      function updateHud() {
+        const hearts = root.querySelector('#words-hearts');
+        if (hearts) {
+          hearts.innerHTML = '';
+          for (let i = 0; i < 3; i++) {
+            hearts.appendChild(Utils.el('i', { 'data-lucide': 'heart', class: `w-4 h-4 ${i < state.lives ? 'text-rose-500 fill-rose-500' : 'text-slate-700 fill-slate-700'}` }));
+          }
+        }
+        const hintCount = root.querySelector('#words-hint-count');
+        if (hintCount) hintCount.textContent = String(state.hints);
+        const scoreEl = root.querySelector('#words-score');
+        if (scoreEl) scoreEl.textContent = I18N.t('common.points', { n: state.score });
+        Utils.refreshIcons();
+      }
+    }
+
+    function gameOver(state) {
+      const key = scoreKey(state.langKey, state.roundType);
+      const isBest = Utils.setBest(key, state.score, true);
+      Utils.recordResult(key, state.score);
+      root.innerHTML = '';
+      root.appendChild(Utils.el('div', { class: 'text-center py-10' }, [
+        Utils.el('i', { 'data-lucide': 'flag', class: 'w-10 h-10 mx-auto text-slate-500 mb-3' }),
+        Utils.el('div', { class: 'text-xl font-extrabold text-slate-100' }, I18N.t('words.gameOver')),
+        Utils.el('div', { class: 'text-slate-400 mt-1' }, I18N.t('words.scoreLine', { score: state.score }) + (isBest ? I18N.t('common.newRecord') : '')),
+        Utils.el('div', { class: 'flex gap-2 justify-center mt-6' }, [
+          Utils.el('button', { class: 'px-4 py-2 rounded-md bg-indigo-500 text-white font-semibold hover:bg-indigo-400', onclick: () => startGame(state.langKey, state.roundType, state.length) }, I18N.t('common.playAgain')),
+          Utils.el('button', { class: 'px-4 py-2 rounded-md bg-slate-800 text-slate-200 font-semibold hover:bg-slate-700', onclick: onExit }, I18N.t('common.toMenu')),
+        ]),
+      ]));
+      Utils.refreshIcons();
+    }
+  }
+
+  return { id: 'words', titleKey: 'game.words.title', descKey: 'game.words.desc', icon: 'languages', color: 'bg-cyan-500', historyVariants, mount };
+})();
+</script>
+  <script>
+// Тренажёр "Скорочтение" — метод Spritz (RSVP): слова показываются по одному
+// в фиксированной точке экрана, с "оптимальной точкой распознавания" (ORP) —
+// одна буква слова всегда выровнена по центру, чтобы глаз не двигался.
+const GameSpeedRead = (() => {
+  const MIN_WPM = 100, MAX_WPM = 900, STEP_WPM = 25, DEFAULT_WPM = 300;
+
+  // эвристика ORP: чем длиннее слово, тем дальше от начала фиксируемая буква
+  function pivotIndex(len) {
+    if (len <= 1) return 0;
+    if (len <= 5) return 1;
+    if (len <= 9) return 2;
+    if (len <= 13) return 3;
+    return 4;
+  }
+
+  // ponytail: линейная надбавка за длину/пунктуацию — грубое приближение к
+  // реальному тайминг-движку Spritz, но покрывает главный эффект (длинные
+  // слова и концы предложений требуют больше времени на осмысление)
+  function msForWord(word, wpm) {
+    const base = 60000 / wpm;
+    let ms = base;
+    if (word.length > 6) ms += base * 0.04 * (word.length - 6);
+    if (/[.!?]$/.test(word)) ms += base * 0.8;
+    else if (/[,;:—]$/.test(word)) ms += base * 0.4;
+    return ms;
+  }
+
+  function mount(root, onExit) {
+    const state = { words: [], fileName: '', idx: 0, wpm: DEFAULT_WPM, playing: false, bookmark: null, timer: null };
+
+    renderSetup();
+
+    function renderSetup() {
+      clearTimeout(state.timer);
+      root.innerHTML = '';
+      const input = Utils.el('input', {
+        type: 'file', accept: '.txt,text/plain', class: 'hidden',
+        onchange: async (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          const text = await file.text();
+          const words = text.trim().split(/\s+/).filter(Boolean);
+          if (!words.length) { alert(I18N.t('speedread.emptyFile')); return; }
+          state.words = words;
+          state.fileName = file.name;
+          state.idx = 0;
+          state.bookmark = null;
+          renderReader();
+        },
+      });
+      root.appendChild(input);
+      root.appendChild(Utils.el('div', { class: 'text-center py-10' }, [
+        Utils.el('i', { 'data-lucide': 'file-text', class: 'w-10 h-10 mx-auto text-slate-500 mb-3' }),
+        Utils.el('div', { class: 'text-slate-400 mb-5' }, I18N.t('speedread.chooseFile')),
+        Utils.el('button', {
+          class: 'px-5 py-3 rounded-md bg-indigo-500 text-white font-bold hover:bg-indigo-400 active:scale-[.98] transition',
+          onclick: () => input.click(),
+        }, I18N.t('speedread.chooseFileBtn')),
+      ]));
+      Utils.refreshIcons();
+    }
+
+    function renderReader() {
+      root.innerHTML = '';
+
+      const header = Utils.el('div', { class: 'flex items-center justify-between mb-4 gap-2' }, [
+        Utils.el('div', { class: 'text-sm text-slate-400 truncate' }, state.fileName),
+        Utils.el('button', {
+          class: 'shrink-0 flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-md bg-slate-800 text-slate-300 hover:bg-slate-700',
+          onclick: renderSetup,
+        }, [Utils.el('i', { 'data-lucide': 'file-x', class: 'w-4 h-4' }), I18N.t('speedread.changeFile')]),
+      ]);
+
+      const progressLabel = Utils.el('div', { class: 'text-center text-xs text-slate-500 mb-1' });
+      const barOuter = Utils.el('div', { class: 'w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mb-4' });
+      const barInner = Utils.el('div', { class: 'h-full bg-indigo-500', style: 'width:0%' });
+      barOuter.appendChild(barInner);
+
+      const pivotEl = Utils.el('span', { class: 'spritz-pivot' });
+      const leftEl = Utils.el('span', { class: 'spritz-left' });
+      const rightEl = Utils.el('span', { class: 'spritz-right' });
+      const stage = Utils.el('div', { class: 'spritz-stage mb-4' }, [
+        Utils.el('div', { class: 'spritz-tick top' }),
+        Utils.el('div', { class: 'spritz-word' }, [leftEl, pivotEl, rightEl]),
+        Utils.el('div', { class: 'spritz-tick bottom' }),
+      ]);
+
+      const wpmLabel = Utils.el('span', { class: 'font-bold text-slate-100' }, String(state.wpm));
+      const speedRow = Utils.el('div', { class: 'flex items-center gap-3 mb-5' }, [
+        Utils.el('button', {
+          class: 'w-9 h-9 shrink-0 rounded-md bg-slate-800 border border-slate-700 text-slate-200 font-bold hover:border-indigo-400',
+          onclick: () => setWpm(state.wpm - STEP_WPM),
+        }, '−'),
+        Utils.el('div', { class: 'flex-1 text-center text-sm text-slate-400' }, [I18N.t('speedread.speedLabel') + ' ', wpmLabel, ' ' + I18N.t('speedread.wpmUnit')]),
+        Utils.el('button', {
+          class: 'w-9 h-9 shrink-0 rounded-md bg-slate-800 border border-slate-700 text-slate-200 font-bold hover:border-indigo-400',
+          onclick: () => setWpm(state.wpm + STEP_WPM),
+        }, '+'),
+      ]);
+      const slider = Utils.el('input', {
+        type: 'range', min: MIN_WPM, max: MAX_WPM, step: STEP_WPM, value: state.wpm,
+        class: 'w-full mb-6 accent-indigo-500',
+        oninput: (e) => setWpm(Number(e.target.value)),
+      });
+
+      const toggleBtn = Utils.el('button', {
+        class: 'w-full py-3 rounded-md bg-indigo-500 text-white font-bold hover:bg-indigo-400 active:scale-[.98] transition flex items-center justify-center gap-2',
+        onclick: toggle,
+      });
+      const primaryRow = Utils.el('div', { class: 'mb-2' }, [toggleBtn]);
+
+      const toStartBtn = Utils.el('button', {
+        class: 'py-2.5 rounded-md bg-slate-800 border border-slate-700 text-slate-300 text-sm font-semibold hover:border-indigo-400 flex items-center justify-center gap-1.5',
+        onclick: toBeginning,
+      }, [Utils.el('i', { 'data-lucide': 'rotate-ccw', class: 'w-4 h-4' }), I18N.t('speedread.toStart')]);
+      const bookmarkBtn = Utils.el('button', {
+        class: 'py-2.5 rounded-md bg-slate-800 border border-slate-700 text-slate-300 text-sm font-semibold hover:border-indigo-400 flex items-center justify-center gap-1.5',
+        onclick: setBookmark,
+      }, [Utils.el('i', { 'data-lucide': 'bookmark', class: 'w-4 h-4' }), I18N.t('speedread.bookmark')]);
+      const toBookmarkBtn = Utils.el('button', {
+        class: 'py-2.5 rounded-md bg-slate-800 border border-slate-700 text-slate-300 text-sm font-semibold hover:border-indigo-400 flex items-center justify-center gap-1.5 disabled:opacity-40',
+        onclick: goToBookmark,
+      }, [Utils.el('i', { 'data-lucide': 'bookmark-check', class: 'w-4 h-4' }), I18N.t('speedread.toBookmark')]);
+      const secondaryRow = Utils.el('div', { class: 'grid grid-cols-3 gap-2' }, [toStartBtn, bookmarkBtn, toBookmarkBtn]);
+
+      root.appendChild(header);
+      root.appendChild(progressLabel);
+      root.appendChild(barOuter);
+      root.appendChild(stage);
+      root.appendChild(speedRow);
+      root.appendChild(slider);
+      root.appendChild(primaryRow);
+      root.appendChild(secondaryRow);
+      Utils.refreshIcons();
+
+      function setWpm(v) {
+        state.wpm = Math.min(MAX_WPM, Math.max(MIN_WPM, v));
+        wpmLabel.textContent = String(state.wpm);
+        slider.value = state.wpm;
+      }
+
+      function updateWord() {
+        const word = state.words[state.idx] || '';
+        const pIdx = Math.min(pivotIndex(word.length), Math.max(0, word.length - 1));
+        leftEl.textContent = word.slice(0, pIdx);
+        pivotEl.textContent = word[pIdx] || '';
+        rightEl.textContent = word.slice(pIdx + 1);
+        progressLabel.textContent = I18N.t('speedread.progress', { i: state.idx + 1, n: state.words.length });
+        barInner.style.width = `${(state.idx / Math.max(1, state.words.length - 1)) * 100}%`;
+        toBookmarkBtn.disabled = state.bookmark == null;
+      }
+
+      function updateToggleBtn() {
+        toggleBtn.innerHTML = '';
+        toggleBtn.appendChild(Utils.el('i', { 'data-lucide': state.playing ? 'pause' : 'play', class: 'w-5 h-5' }));
+        toggleBtn.append(state.playing ? I18N.t('speedread.pause') : I18N.t('speedread.start'));
+        Utils.refreshIcons();
+      }
+
+      function scheduleTick() {
+        const word = state.words[state.idx];
+        state.timer = setTimeout(advance, msForWord(word, state.wpm));
+      }
+
+      function advance() {
+        if (state.idx >= state.words.length - 1) { pause(); return; }
+        state.idx++;
+        updateWord();
+        scheduleTick();
+      }
+
+      function play() {
+        if (state.playing || !state.words.length) return;
+        if (state.idx >= state.words.length - 1) state.idx = 0;
+        state.playing = true;
+        updateToggleBtn();
+        updateWord();
+        scheduleTick();
+      }
+
+      function pause() {
+        state.playing = false;
+        clearTimeout(state.timer);
+        updateToggleBtn();
+      }
+
+      function toggle() {
+        if (state.playing) pause(); else play();
+      }
+
+      function toBeginning() {
+        pause();
+        state.idx = 0;
+        updateWord();
+      }
+
+      function setBookmark() {
+        state.bookmark = state.idx;
+        updateWord();
+      }
+
+      function goToBookmark() {
+        if (state.bookmark == null) return;
+        pause();
+        state.idx = state.bookmark;
+        updateWord();
+      }
+
+      updateWord();
+      updateToggleBtn();
+      registerSpaceToggle(stage, toggle);
+    }
+  }
+
+  // пробел переключает старт/паузу, пока экран чтения виден; слушатель
+  // само-снимается при первом же пробеле после того, как экран закрыт
+  // (root пересоздаётся при переходе в меню/настройки — своего unmount-хука нет)
+  function registerSpaceToggle(stage, toggle) {
+    document.addEventListener('keydown', function onKeydown(e) {
+      if (!stage.isConnected) { document.removeEventListener('keydown', onKeydown); return; }
+      if (e.code !== 'Space') return;
+      e.preventDefault();
+      toggle();
+    });
+  }
+
+  return { id: 'speedread', titleKey: 'game.speedread.title', descKey: 'game.speedread.desc', icon: 'zap', color: 'bg-violet-500', mount };
+})();
+</script>
+  <script>
+// Экран статистики — графики прогресса по каждому режиму/уровню тренажёра
+const StatsView = (() => {
+  const GAMES_META = [
+    { game: GameLine, stroke: '#818cf8', higherIsBetter: true, fmt: v => `${v}` },
+    { game: GameMath, stroke: '#34d399', higherIsBetter: true, fmt: v => `${v}` },
+    { game: GamePairs, stroke: '#fb7185', higherIsBetter: true, fmt: v => `${v}` },
+    { game: GameSchulte, stroke: '#fbbf24', higherIsBetter: false, fmt: v => Utils.fmtTime(v) },
+    { game: GameWords, stroke: '#22d3ee', higherIsBetter: true, fmt: v => `${v}` },
+  ];
+
+  function svgEl(tag, attrs = {}) {
+    const node = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+    return node;
+  }
+
+  function buildChart(history, meta) {
+    const W = 100, H = 36;
+    if (history.length < 2) {
+      const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, class: 'w-full h-16' });
+      const text = svgEl('text', { x: W / 2, y: H / 2, fill: '#64748b', 'font-size': '5', 'text-anchor': 'middle', 'dominant-baseline': 'middle' });
+      text.textContent = I18N.t('stats.playAgain');
+      svg.appendChild(text);
+      return svg;
+    }
+    const values = history.map(h => h.v);
+    const plotVals = meta.higherIsBetter ? values : values.map(v => -v);
+    const min = Math.min(...plotVals), max = Math.max(...plotVals);
+    const range = max - min || 1;
+    const pts = plotVals.map((v, i) => {
+      const x = (i / (history.length - 1)) * W;
+      const y = H - 4 - ((v - min) / range) * (H - 8);
+      return [x, y];
+    });
+    const pointsAttr = pts.map(p => p.join(',')).join(' ');
+    const areaAttr = `0,${H} ${pointsAttr} ${W},${H}`;
+
+    const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, class: 'w-full h-16', preserveAspectRatio: 'none' });
+    svg.appendChild(svgEl('polygon', { points: areaAttr, fill: meta.stroke, 'fill-opacity': '0.12', stroke: 'none' }));
+    svg.appendChild(svgEl('polyline', { points: pointsAttr, fill: 'none', stroke: meta.stroke, 'stroke-width': '1.6', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+    const last = pts[pts.length - 1];
+    svg.appendChild(svgEl('circle', { cx: last[0], cy: last[1], r: '2', fill: meta.stroke }));
+    return svg;
+  }
+
+  function buildCard(meta) {
+    const variants = meta.game.historyVariants();
+    let activeKey = variants[0].key;
+    let bestCount = -1;
+    variants.forEach(v => {
+      const len = Utils.getHistory(v.key).length;
+      if (len > bestCount) { bestCount = len; activeKey = v.key; }
+    });
+
+    const card = Utils.el('div', { class: 'p-4 rounded-md border border-slate-700 bg-slate-800/50' });
+    const chartHolder = Utils.el('div', {});
+    const metaLine = Utils.el('div', { class: 'flex items-center justify-between mt-2 text-xs text-slate-500' });
+    const sessionsLabel = Utils.el('span', { class: 'text-xs text-slate-500' });
+
+    const select = Utils.el('select', {
+      class: 'bg-slate-900 border border-slate-700 rounded-md text-xs text-slate-300 px-2 py-1 max-w-[55%]',
+      onchange: (e) => renderVariant(e.target.value),
+    }, variants.map(v => Utils.el('option', { value: v.key }, v.label)));
+    select.value = activeKey;
+
+    card.appendChild(Utils.el('div', { class: 'flex items-center justify-between mb-2 gap-2' }, [
+      Utils.el('div', { class: 'flex items-center gap-2 shrink-0' }, [
+        Utils.el('i', { 'data-lucide': meta.game.icon, class: 'w-4 h-4 text-slate-400' }),
+        Utils.el('span', { class: 'font-semibold text-slate-100 text-sm' }, I18N.t(meta.game.titleKey)),
+      ]),
+      select,
+    ]));
+    card.appendChild(sessionsLabel);
+    card.appendChild(chartHolder);
+    card.appendChild(metaLine);
+
+    function renderVariant(key) {
+      const history = Utils.getHistory(key);
+      sessionsLabel.textContent = I18N.t('stats.sessions', { n: history.length });
+      chartHolder.innerHTML = '';
+      chartHolder.appendChild(buildChart(history, meta));
+      metaLine.innerHTML = '';
+      if (history.length) {
+        const vals = history.map(h => h.v);
+        const bestVal = meta.higherIsBetter ? Math.max(...vals) : Math.min(...vals);
+        const lastVal = vals[vals.length - 1];
+        metaLine.appendChild(Utils.el('span', {}, I18N.t('stats.last', { v: meta.fmt(lastVal) })));
+        metaLine.appendChild(Utils.el('span', {}, I18N.t('stats.best', { v: meta.fmt(bestVal) })));
+      }
+    }
+    renderVariant(activeKey);
+
+    return card;
+  }
+
+  function mount(root, onExit) {
+    root.innerHTML = '';
+    const wrap = Utils.el('div', { class: 'space-y-4' });
+    GAMES_META.forEach(meta => wrap.appendChild(buildCard(meta)));
+    root.appendChild(wrap);
+    Utils.refreshIcons();
+  }
+
+  return { id: 'stats', titleKey: 'game.stats.title', descKey: 'game.stats.desc', icon: 'bar-chart-3', color: 'bg-slate-700', mount };
+})();
+</script>
+  <script>
+// Меню и навигация между тренажёрами
+(() => {
+  const root = document.getElementById('app-root');
+  const games = [GameLine, GameMath, GamePairs, GameSchulte, GameWords, GameSpeedRead];
+  const menuItems = [...games, StatsView];
+
+  function langToggle() {
+    const other = I18N.getLang() === 'ru' ? 'en' : 'ru';
+    return Utils.el('button', {
+      class: 'shrink-0 px-3 py-1.5 rounded-md border border-slate-700 bg-slate-900 text-xs font-bold text-slate-300 hover:border-indigo-400',
+      onclick: () => { I18N.setLang(other); showMenu(); },
+    }, I18N.getLang().toUpperCase());
+  }
+
+  function showMenu() {
+    document.title = I18N.t('app.title');
+    root.innerHTML = '';
+    const header = Utils.el('div', { class: 'px-5 pt-6 pb-4 flex items-start justify-between gap-3' }, [
+      Utils.el('div', {}, [
+        Utils.el('h1', { class: 'text-2xl font-extrabold text-slate-100' }, I18N.t('app.title')),
+        Utils.el('p', { class: 'text-sm text-slate-500 mt-1' }, I18N.t('app.subtitle')),
+      ]),
+      langToggle(),
+    ]);
+
+    const list = Utils.el('div', { class: 'px-4 pb-8 space-y-3' });
+    menuItems.forEach(g => {
+      const card = Utils.el('button', {
+        class: 'w-full flex items-center gap-4 p-4 bg-slate-900 border border-slate-700 rounded-md hover:border-indigo-400 active:scale-[.98] transition text-left',
+        onclick: () => openGame(g),
+      }, [
+        Utils.el('div', { class: `w-12 h-12 shrink-0 rounded-md flex items-center justify-center ${g.color}` }, [
+          Utils.el('i', { 'data-lucide': g.icon, class: 'w-6 h-6 text-white' }),
+        ]),
+        Utils.el('div', { class: 'flex-1 min-w-0' }, [
+          Utils.el('div', { class: 'font-bold text-slate-100' }, I18N.t(g.titleKey)),
+          Utils.el('div', { class: 'text-xs text-slate-500 mt-0.5' }, I18N.t(g.descKey)),
+        ]),
+      ]);
+      list.appendChild(card);
+    });
+
+    root.appendChild(header);
+    root.appendChild(list);
+    Utils.refreshIcons();
+  }
+
+  function openGame(g) {
+    root.innerHTML = '';
+    const bar = Utils.el('div', { class: 'sticky top-0 z-20 flex items-center gap-2 px-3 py-3 bg-slate-950/90 backdrop-blur border-b border-slate-800' }, [
+      Utils.el('button', {
+        class: 'w-9 h-9 flex items-center justify-center rounded-md hover:bg-slate-800 active:scale-95 transition text-slate-300',
+        onclick: showMenu,
+      }, [Utils.el('i', { 'data-lucide': 'arrow-left', class: 'w-5 h-5' })]),
+      Utils.el('div', { class: 'font-bold text-slate-100' }, I18N.t(g.titleKey)),
+    ]);
+    const body = Utils.el('div', { class: 'p-4' });
+    root.appendChild(bar);
+    root.appendChild(body);
+    Utils.refreshIcons();
+    g.mount(body, showMenu);
+  }
+
+  showMenu();
+})();
+</script>
+</body>
+</html>

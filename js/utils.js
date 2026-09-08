@@ -98,9 +98,54 @@ const Utils = (() => {
     });
   }
 
+  // озвучка слов/букв через нативный Web Speech API — без внешних зависимостей
+  function speak(text, lang) {
+    if (!text || !window.speechSynthesis) return;
+    try {
+      window.speechSynthesis.cancel(); // обрываем предыдущую фразу, чтобы клики не ставились в очередь
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = lang;
+      utter.rate = 0.9;
+      window.speechSynthesis.speak(utter);
+    } catch (e) { /* Web Speech недоступен — молча игнорируем */ }
+  }
+  function getVoiceEnabled() { return localStorage.getItem('mt_voice_enabled') === '1'; }
+  function setVoiceEnabled(v) { localStorage.setItem('mt_voice_enabled', v ? '1' : '0'); }
+
+  // тумблер озвучки — общий для тренажёров со словами/буквами (Строчка, Слова)
+  function buildVoiceToggle(onChange) {
+    const enabled = getVoiceEnabled();
+    const toggleBtn = el('button', {
+      class: 'w-full flex items-center justify-between p-3 rounded-md border border-slate-700 bg-slate-800/50',
+      onclick: () => { setVoiceEnabled(!enabled); onChange(); },
+    }, [
+      el('div', { class: 'flex items-center gap-2' }, [
+        el('i', { 'data-lucide': 'volume-2', class: 'w-4 h-4 text-slate-400' }),
+        el('span', { class: 'text-sm font-semibold text-slate-100' }, I18N.t('common.voice')),
+      ]),
+      el('span', { class: `w-10 h-6 rounded-full relative transition ${enabled ? 'bg-emerald-500' : 'bg-slate-700'}` },
+        el('span', { class: `absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all ${enabled ? 'left-[18px]' : 'left-0.5'}` })
+      ),
+    ]);
+
+    const help = el('details', { class: 'mt-1.5 px-1 text-xs text-slate-500' }, [
+      el('summary', { class: 'cursor-pointer select-none text-slate-500 hover:text-slate-400 py-1' }, I18N.t('common.voiceHelpTitle')),
+      el('div', { class: 'mt-1.5 space-y-1.5 pb-1' }, [
+        el('p', {}, I18N.t('common.voiceHelpWindows')),
+        el('p', {}, I18N.t('common.voiceHelpMac')),
+        el('p', {}, I18N.t('common.voiceHelpIOS')),
+        el('p', {}, I18N.t('common.voiceHelpAndroid')),
+        el('p', {}, I18N.t('common.voiceHelpLinux')),
+        el('p', { class: 'italic' }, I18N.t('common.voiceHelpNote')),
+      ]),
+    ]);
+
+    return el('div', { class: 'mb-6' }, [toggleBtn, help]);
+  }
+
   function refreshIcons() {
     if (window.lucide) window.lucide.createIcons({ icons: window.lucide.icons });
   }
 
-  return { el, shuffle, randInt, sample, getBest, setBest, recordResult, getHistory, fmtTime, refreshIcons, startBarDrain };
+  return { el, shuffle, randInt, sample, getBest, setBest, recordResult, getHistory, fmtTime, refreshIcons, startBarDrain, speak, getVoiceEnabled, setVoiceEnabled, buildVoiceToggle };
 })();

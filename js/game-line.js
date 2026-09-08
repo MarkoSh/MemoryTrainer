@@ -1,10 +1,15 @@
 // Тренажёр "Строчка" — запоминание и воспроизведение последовательности символов
 const GameLine = (() => {
   const LEVELS = {
-    en: { nameKey: 'line.setEn', pool: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(ch => ({ id: ch, ch })) },
+    en: { nameKey: 'line.setEn', pool: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(ch => ({ id: ch, ch, lang: 'en-US' })) },
     icons: { nameKey: 'line.setIcons', pool: ICON_POOL.map(name => ({ id: name, icon: name })) },
-    thai: { nameKey: 'line.setThai', pool: THAI_POOL.map(t => ({ id: t.ch, ch: t.ch, tr: t.tr })) },
+    thai: { nameKey: 'line.setThai', pool: THAI_POOL.map(t => ({ id: t.ch, ch: t.ch, tr: t.tr, lang: 'th-TH' })) },
   };
+
+  function maybeSpeak(token) {
+    if (!Utils.getVoiceEnabled() || !token || !token.lang) return;
+    Utils.speak(token.ch, token.lang);
+  }
 
   const ROUND_TYPES = {
     forward: { nameKey: 'line.roundForward', descKey: 'line.roundForwardDesc' },
@@ -78,6 +83,7 @@ const GameLine = (() => {
           }, [Utils.el('div', { class: 'font-semibold text-slate-100' }, I18N.t(rt.nameKey)), Utils.el('div', { class: 'text-xs text-slate-500' }, I18N.t(rt.descKey))])
         )),
       ]));
+      root.appendChild(Utils.buildVoiceToggle(renderSetup));
       root.appendChild(Utils.el('button', {
         class: 'w-full py-3 rounded-md bg-indigo-500 text-white font-bold hover:bg-indigo-400 active:scale-[.98] transition',
         onclick: () => startGame(levelKey, roundType, length),
@@ -140,6 +146,7 @@ const GameLine = (() => {
         const back = Utils.el('div', { class: 'flip-face back bg-slate-800 border border-slate-700' });
         const inner = Utils.el('div', { class: 'flip-inner' }, [front, back]);
         const card = Utils.el('div', { class: `flip-card w-12 h-14 sm:w-14 sm:h-16 ${doStudy ? '' : 'is-hidden'}`, 'data-i': i }, inner);
+        card.addEventListener('click', () => { if (!card.classList.contains('is-hidden')) maybeSpeak(tok); });
         cardsRow.appendChild(card);
         return card;
       });
@@ -165,7 +172,7 @@ const GameLine = (() => {
         keyboardTokens.forEach(tok => {
           const btn = Utils.el('button', {
             class: 'aspect-square flex items-center justify-center rounded-md border border-slate-700 bg-slate-800 hover:border-indigo-400 active:scale-95 transition text-slate-100',
-            onclick: () => handleGuess(tok, btn),
+            onclick: () => { maybeSpeak(tok); handleGuess(tok, btn); },
           }, tokenNode(tok, false));
           btn.dataset.id = tok.id;
           keyboardWrap.appendChild(btn);
@@ -268,7 +275,7 @@ const GameLine = (() => {
     function gameOver(state) {
       const key = scoreKey(state.levelKey, state.roundType);
       const isBest = Utils.setBest(key, state.score, true);
-      Utils.recordResult('line', state.score);
+      Utils.recordResult(key, state.score);
       root.innerHTML = '';
       root.appendChild(Utils.el('div', { class: 'text-center py-10' }, [
         Utils.el('i', { 'data-lucide': 'flag', class: 'w-10 h-10 mx-auto text-slate-500 mb-3' }),

@@ -1,7 +1,7 @@
 // Меню и навигация между тренажёрами
 (() => {
   const root = document.getElementById('app-root');
-  const games = [GameLine, GameMath, GamePairs, GameSchulte];
+  const games = [GameLine, GameMath, GamePairs, GameSchulte, GameWords, GameSpeedRead];
   const menuItems = [...games, StatsView];
 
   function langToggle() {
