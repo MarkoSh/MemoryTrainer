@@ -16,13 +16,28 @@
     <div id="app-root" class="app-card"></div>
   </div>
 
+  <script>
+    // без этого падение любого из скриптов ниже (напр. недоступный localStorage
+    // в некоторых WebView) выглядит как совершенно пустой экран без единой подсказки —
+    // а на телефоне консоль разработчика не открыть
+    window.addEventListener('error', (e) => {
+      const root = document.getElementById('app-root');
+      if (root && !root.hasChildNodes()) {
+        root.innerHTML = '<pre style="color:#f87171;padding:16px;white-space:pre-wrap;font-size:12px">' +
+          'Ошибка запуска:\n' + (e.error && e.error.stack || e.message) + '</pre>';
+      }
+    });
+  </script>
   <script src="js/utils.js"></script>
   <script src="js/i18n.js"></script>
+  <script src="js/edubba.js"></script>
   <script src="js/game-line.js"></script>
   <script src="js/game-math.js"></script>
   <script src="js/game-pairs.js"></script>
   <script src="js/game-schulte.js"></script>
   <script src="js/game-words.js"></script>
+  <script src="js/game-edubba-words.js"></script>
+  <script src="js/game-sumer.js"></script>
   <script src="js/game-speedread.js"></script>
   <script src="js/stats.js"></script>
   <script src="js/main.js"></script>

@@ -1,0 +1,7 @@
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+# regenerated from ../index.standalone.html by build-apk.sh — not the source of truth
+app/src/main/assets/www/index.html

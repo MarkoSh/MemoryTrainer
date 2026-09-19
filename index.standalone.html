@@ -97,6 +97,18 @@ body { background: #020617; }
   </div>
 
   <script>
+    // без этого падение любого из скриптов ниже (напр. недоступный localStorage
+    // в некоторых WebView) выглядит как совершенно пустой экран без единой подсказки —
+    // а на телефоне консоль разработчика не открыть
+    window.addEventListener('error', (e) => {
+      const root = document.getElementById('app-root');
+      if (root && !root.hasChildNodes()) {
+        root.innerHTML = '<pre style="color:#f87171;padding:16px;white-space:pre-wrap;font-size:12px">' +
+          'Ошибка запуска:\n' + (e.error && e.error.stack || e.message) + '</pre>';
+      }
+    });
+  </script>
+  <script>
 // Общие утилиты и наборы символов для всех тренажёров
 const ICON_POOL = ['star','heart','sun','moon','cloud','umbrella','anchor','bell','book-open','camera',
   'car','cat','coffee','gift','key','leaf','map-pin','music','phone','rocket',
@@ -153,13 +165,15 @@ const Utils = (() => {
     return shuffle(arr).slice(0, n);
   }
 
+  // localStorage может бросать (напр. недоступное хранилище в WebView) —
+  // без защиты это роняет весь обработчик клика на середине игры
   function getBest(key) {
-    return localStorage.getItem('mt_best_' + key);
+    try { return localStorage.getItem('mt_best_' + key); } catch (e) { return null; }
   }
   function setBest(key, value, higherIsBetter) {
     const cur = getBest(key);
     if (cur == null || (higherIsBetter ? Number(value) > Number(cur) : Number(value) < Number(cur))) {
-      localStorage.setItem('mt_best_' + key, value);
+      try { localStorage.setItem('mt_best_' + key, value); } catch (e) { /* нет хранилища — рекорд просто не сохранится */ }
       return true;
     }
     return false;
@@ -172,7 +186,7 @@ const Utils = (() => {
     try { hist = JSON.parse(localStorage.getItem(key)) || []; } catch (e) { hist = []; }
     hist.push({ t: Date.now(), v: value });
     if (hist.length > HISTORY_LIMIT) hist = hist.slice(hist.length - HISTORY_LIMIT);
-    localStorage.setItem(key, JSON.stringify(hist));
+    try { localStorage.setItem(key, JSON.stringify(hist)); } catch (e) { /* нет хранилища — история просто не сохранится */ }
   }
   function getHistory(gameId) {
     try { return JSON.parse(localStorage.getItem('mt_hist_' + gameId)) || []; } catch (e) { return []; }
@@ -208,8 +222,8 @@ const Utils = (() => {
       window.speechSynthesis.speak(utter);
     } catch (e) { /* Web Speech недоступен — молча игнорируем */ }
   }
-  function getVoiceEnabled() { return localStorage.getItem('mt_voice_enabled') === '1'; }
-  function setVoiceEnabled(v) { localStorage.setItem('mt_voice_enabled', v ? '1' : '0'); }
+  function getVoiceEnabled() { try { return localStorage.getItem('mt_voice_enabled') === '1'; } catch (e) { return false; } }
+  function setVoiceEnabled(v) { try { localStorage.setItem('mt_voice_enabled', v ? '1' : '0'); } catch (e) { /* нет хранилища — переключится только на эту сессию */ } }
 
   // тумблер озвучки — общий для тренажёров со словами/буквами (Строчка, Слова)
   function buildVoiceToggle(onChange) {
@@ -274,6 +288,8 @@ const I18N = (() => {
         schulte: { title: 'Таблицы Шульте', desc: 'Находи числа по порядку боковым зрением' },
         words: { title: 'Слова', desc: 'Запомни и повтори набор слов' },
         speedread: { title: 'Скорочтение', desc: 'Читай текст словами по методу Spritz' },
+        edubba: { title: 'Эдуба: слова', desc: 'Тематические блоки: копируй, вспоминай, сдавай проверку' },
+        sumer: { title: 'Математика, шумерская', desc: 'Таблицы igi и умножения в шестидесятеричной системе' },
         stats: { title: 'Статистика', desc: 'Графики прогресса по всем тренажёрам' },
       },
       line: {
@@ -350,6 +366,46 @@ const I18N = (() => {
         toStart: 'В начало',
         toBookmark: 'К закладке',
       },
+      edubba: {
+        phase: { copy: '1 · Копирование', recall: '2 · Вспомни сам', exam: '3 · Проверка' },
+        hint: {
+          copy: 'Образец перед глазами — повтори его в точности, как писец копирует табличку учителя.',
+          recall: 'Образец убран. Восстанови по подсказке; две ошибки — образец откроется.',
+          exam: 'Порядок перемешан, подсказок нет, одна попытка. Как ответ перед проверяющим.',
+        },
+        peek: 'Подсмотреть образец',
+        next: 'Дальше',
+        mastered: 'Блок освоен', notYet: 'Пока не освоено',
+        need: 'нужно не менее {n}%',
+        mistakesList: 'Что не удалось:',
+        repeat: 'Повторить ошибки', toList: 'К списку блоков',
+        modeEn: 'Английский', modeTh: 'Тайский',
+        wordsN: '{n} слов',
+        cat: {
+          body: 'Тело', family: 'Семья и люди', animals: 'Животные', food: 'Еда и питьё', numbers: 'Числа 1–10',
+          time: 'Время', nature: 'Природа', home: 'Дом и вещи', people: 'Занятия и ремёсла', actions: 'Действия',
+        },
+      },
+      sumer: {
+        howTitle: 'Как читать шестидесятеричные числа',
+        how1: 'Число пишется по местам, места разделяются двоеточием, в каждом месте — число от 0 до 59. Например, 1:06 — «один, шесть».',
+        how2: 'Конечные нули можно не писать, как в клинописи: 1 и 1:00 — одно и то же.',
+        how3: 'igi n — число, на которое умножают n, чтобы получить 1. Делить на n значит умножать на igi n.',
+        tables: 'Таблицы для заучивания',
+        practice: 'Практика: составные примеры',
+        practiceNote: 'Только из заученных таблиц. Каждый шаг — в шестидесятеричной записи.',
+        itemsN: '{n} значений',
+        lessonIgi: 'Обратные числа (igi) {a}–{b}',
+        lessonMul: 'Таблица ×{p}',
+        rangeA: 'множители 1–10', rangeB: 'множители 11–20, 30, 40, 50',
+        igiHint: 'Число, которое при умножении на n даёт 1',
+        tier1: 'Деление на igi', tier1Desc: 'Одно число ÷ n: igi и одно умножение',
+        tier2: 'Деление составного числа', tier2Desc: 'Два места ÷ n: igi, два умножения, сложение',
+        tier3: 'Умножение по таблице', tier3Desc: 'Два места × основание: два умножения, сложение',
+        taskN: 'Пример {i} / {n}',
+        practiceDone: 'Практика завершена',
+        scoreLine: 'Счёт: {score} из {max}',
+      },
       stats: {
         sessions: 'Сессий: {n}',
         playAgain: 'Сыграй ещё раз, чтобы увидеть график',
@@ -378,6 +434,8 @@ const I18N = (() => {
         schulte: { title: 'Schulte Tables', desc: 'Find numbers in order using peripheral vision' },
         words: { title: 'Words', desc: 'Memorize and repeat a set of words' },
         speedread: { title: 'Speed Reading', desc: 'Read text word-by-word with the Spritz method' },
+        edubba: { title: 'Edubba: Words', desc: 'Themed blocks: copy, recall, pass the exam' },
+        sumer: { title: 'Sumerian Math', desc: 'Igi and multiplication tables in base 60' },
         stats: { title: 'Statistics', desc: 'Progress charts for every trainer' },
       },
       line: {
@@ -454,6 +512,46 @@ const I18N = (() => {
         toStart: 'To start',
         toBookmark: 'To bookmark',
       },
+      edubba: {
+        phase: { copy: '1 · Copy', recall: '2 · Recall', exam: '3 · Exam' },
+        hint: {
+          copy: 'The model is in front of you — reproduce it exactly, like a scribe copying the teacher\'s tablet.',
+          recall: 'The model is gone. Rebuild it from the clue; two mistakes reveal the model.',
+          exam: 'Shuffled order, no hints, one attempt. Like answering before the examiner.',
+        },
+        peek: 'Peek at the model',
+        next: 'Next',
+        mastered: 'Block mastered', notYet: 'Not mastered yet',
+        need: 'need at least {n}%',
+        mistakesList: 'What went wrong:',
+        repeat: 'Repeat the mistakes', toList: 'Back to blocks',
+        modeEn: 'English', modeTh: 'Thai',
+        wordsN: '{n} words',
+        cat: {
+          body: 'Body', family: 'Family & people', animals: 'Animals', food: 'Food & drink', numbers: 'Numbers 1–10',
+          time: 'Time', nature: 'Nature', home: 'Home & things', people: 'Trades & occupations', actions: 'Actions',
+        },
+      },
+      sumer: {
+        howTitle: 'How to read base-60 numbers',
+        how1: 'A number is written place by place, places separated by a colon, each place is 0 to 59. For example, 1:06 is “one, six”.',
+        how2: 'Trailing zeros may be omitted, as in cuneiform: 1 and 1:00 are the same.',
+        how3: 'igi n is the number you multiply n by to get 1. Dividing by n means multiplying by igi n.',
+        tables: 'Tables to memorize',
+        practice: 'Practice: composite problems',
+        practiceNote: 'Built only from tables you have learned. Every step in base 60.',
+        itemsN: '{n} entries',
+        lessonIgi: 'Reciprocals (igi) {a}–{b}',
+        lessonMul: 'Table ×{p}',
+        rangeA: 'multipliers 1–10', rangeB: 'multipliers 11–20, 30, 40, 50',
+        igiHint: 'The number that gives 1 when multiplied by n',
+        tier1: 'Division by igi', tier1Desc: 'One place ÷ n: igi and one multiplication',
+        tier2: 'Composite division', tier2Desc: 'Two places ÷ n: igi, two multiplications, an addition',
+        tier3: 'Table multiplication', tier3Desc: 'Two places × base: two multiplications, an addition',
+        taskN: 'Problem {i} / {n}',
+        practiceDone: 'Practice complete',
+        scoreLine: 'Score: {score} of {max}',
+      },
       stats: {
         sessions: 'Sessions: {n}',
         playAgain: 'Play again to see the chart',
@@ -463,7 +561,10 @@ const I18N = (() => {
     },
   };
 
-  let lang = localStorage.getItem('mt_lang') || 'ru';
+  // try/catch: localStorage может бросать (напр. file:// origin в некоторых
+  // WebView) — без защиты это падение убивает весь I18N и следом main.js
+  let lang = 'ru';
+  try { lang = localStorage.getItem('mt_lang') || 'ru'; } catch (e) { /* нет доступа к хранилищу — остаёмся на ru */ }
 
   function t(key, vars) {
     const node = key.split('.').reduce((acc, k) => (acc == null ? acc : acc[k]), dict[lang]);
@@ -472,9 +573,137 @@ const I18N = (() => {
     return str;
   }
   function getLang() { return lang; }
-  function setLang(l) { lang = l; localStorage.setItem('mt_lang', l); }
+  function setLang(l) { lang = l; try { localStorage.setItem('mt_lang', l); } catch (e) { /* игнорируем — язык хотя бы поменяется на эту сессию */ } }
 
   return { t, getLang, setLang };
+})();
+</script>
+  <script>
+// Общий движок "эдубы" (шумерской школы писцов): блок материала осваивается целиком
+// по циклу копирование (образец на виду) -> вспоминание (образца нет) -> проверка
+// (порядок перемешан, без подсказок), и только после сдачи проверки открывается
+// следующий блок. Движок не знает ни про слова, ни про числа — их даёт игра через cfg.
+const Edubba = (() => {
+  const PASS_PCT = 85;
+
+  // освоенность блока хранится как лучший % проверки в общем Utils.getBest/setBest
+  const masteryKey = id => 'edubba_' + id;
+  const bestPct = id => { const v = Utils.getBest(masteryKey(id)); return v == null ? null : Number(v); };
+  const isMastered = id => (bestPct(id) ?? -1) >= PASS_PCT;
+
+  // список блоков: следующий открывается только после освоения предыдущего
+  function renderLessons(lessons, onOpen) {
+    return Utils.el('div', { class: 'space-y-2' }, lessons.map((l, i) => {
+      const done = isMastered(l.id);
+      const locked = i > 0 && !done && !isMastered(lessons[i - 1].id);
+      const best = bestPct(l.id);
+      const tone = locked ? 'border-slate-800 bg-slate-900/40 opacity-50'
+        : done ? 'border-emerald-500/40 bg-emerald-500/10' : 'border-slate-700 bg-slate-800/50 hover:border-indigo-400';
+      return Utils.el('button', { class: `w-full flex items-center gap-3 p-3 rounded-md border text-left transition ${tone}`, onclick: locked ? null : () => onOpen(l) }, [
+        Utils.el('i', { 'data-lucide': locked ? 'lock' : done ? 'circle-check' : 'circle', class: `w-5 h-5 shrink-0 ${done ? 'text-emerald-400' : 'text-slate-500'}` }),
+        Utils.el('div', { class: 'flex-1 min-w-0' }, [
+          Utils.el('div', { class: 'font-semibold text-slate-100 truncate' }, `${i + 1}. ${l.title}`),
+          Utils.el('div', { class: 'text-xs text-slate-500' }, l.sub),
+        ]),
+        best != null ? Utils.el('span', { class: 'text-xs font-bold text-slate-400' }, `${best}%`) : null,
+      ]);
+    }));
+  }
+
+  // cfg: { id, title, items, prompt(item), model(item), makeInput(item, phase, submit),
+  //        isCorrect(item, value), speak?(item), onExit() }
+  // makeInput возвращает узел; при ошибке движок вызывает node.reset(), если он есть.
+  function run(root, cfg) {
+    const shake = el => { el.classList.add('shake'); setTimeout(() => el.classList.remove('shake'), 500); };
+    const btn = (label, onclick, tone = 'bg-indigo-500 text-white hover:bg-indigo-400') =>
+      Utils.el('button', { class: `w-full py-3 rounded-md font-bold active:scale-[.98] transition ${tone}`, onclick }, label);
+
+    each('copy', cfg.items, () => each('recall', cfg.items, exam));
+
+    function each(phase, list, done) {
+      const results = [];
+      next(0);
+      function next(i) {
+        if (i >= list.length) return done(results);
+        screen(phase, list, i, ok => { results.push({ item: list[i], ok }); next(i + 1); });
+      }
+    }
+
+    function screen(phase, list, i, finish) {
+      const item = list[i];
+      let mistakes = 0, settled = false;
+      root.innerHTML = '';
+      root.appendChild(Utils.el('div', { class: 'text-xs text-slate-500 truncate' }, cfg.title));
+      root.appendChild(Utils.el('div', { class: 'flex items-center justify-between mb-1' }, [
+        Utils.el('span', { class: 'font-semibold text-slate-200' }, I18N.t('edubba.phase.' + phase)),
+        Utils.el('span', { class: 'text-sm text-slate-500' }, `${i + 1} / ${list.length}`),
+      ]));
+      root.appendChild(Utils.el('div', { class: 'text-xs text-slate-500 mb-4' }, I18N.t('edubba.hint.' + phase)));
+      const stage = Utils.el('div', { class: 'mb-5' }, phase === 'copy' ? cfg.model(item) : cfg.prompt(item));
+      const area = Utils.el('div', {});
+      root.appendChild(stage);
+      root.appendChild(area);
+
+      const showModel = () => { stage.innerHTML = ''; stage.appendChild(cfg.model(item)); };
+      const reveal = () => {
+        settled = true;
+        showModel();
+        area.innerHTML = '';
+        area.appendChild(btn(I18N.t('edubba.next'), () => finish(false)));
+      };
+
+      const widget = cfg.makeInput(item, phase, value => {
+        if (settled) return;
+        if (cfg.isCorrect(item, value)) {
+          settled = true;
+          if (cfg.speak) cfg.speak(item);
+          showModel();
+          setTimeout(() => finish(phase === 'copy' || mistakes === 0), 600);
+        } else {
+          mistakes++;
+          shake(widget);
+          if (widget.reset) widget.reset();
+          if (phase === 'exam' || (phase === 'recall' && mistakes >= 2)) reveal();
+        }
+      });
+      area.appendChild(widget);
+      if (phase === 'recall') {
+        area.appendChild(Utils.el('button', {
+          class: 'w-full mt-3 py-2 text-sm text-slate-500 hover:text-slate-300',
+          onclick: reveal,
+        }, I18N.t('edubba.peek')));
+      }
+    }
+
+    function exam() {
+      each('exam', Utils.shuffle(cfg.items), results => {
+        const pct = Math.round(results.filter(r => r.ok).length / results.length * 100);
+        Utils.setBest(masteryKey(cfg.id), pct, true);
+        result(pct, results.filter(r => !r.ok).map(r => r.item));
+      });
+    }
+
+    function result(pct, failed) {
+      const pass = pct >= PASS_PCT;
+      root.innerHTML = '';
+      root.appendChild(Utils.el('div', { class: 'text-center py-6' }, [
+        Utils.el('i', { 'data-lucide': pass ? 'trophy' : 'flag', class: `w-10 h-10 mx-auto mb-3 ${pass ? 'text-emerald-400' : 'text-slate-500'}` }),
+        Utils.el('div', { class: 'text-xl font-extrabold text-slate-100' }, I18N.t(pass ? 'edubba.mastered' : 'edubba.notYet')),
+        Utils.el('div', { class: 'text-slate-400 mt-1' }, `${pct}%` + (pass ? '' : ' · ' + I18N.t('edubba.need', { n: PASS_PCT }))),
+      ]));
+      if (failed.length) {
+        root.appendChild(Utils.el('div', { class: 'text-xs text-slate-500 mb-2' }, I18N.t('edubba.mistakesList')));
+        root.appendChild(Utils.el('div', { class: 'space-y-2 mb-5' }, failed.map(it => cfg.model(it))));
+      }
+      const row = Utils.el('div', { class: 'space-y-2' });
+      if (!pass) row.appendChild(btn(I18N.t('edubba.repeat'), () => each('recall', failed, exam)));
+      row.appendChild(btn(I18N.t('edubba.toList'), cfg.onExit, pass ? 'bg-indigo-500 text-white hover:bg-indigo-400' : 'bg-slate-800 text-slate-200 hover:bg-slate-700'));
+      root.appendChild(row);
+      Utils.refreshIcons();
+    }
+  }
+
+  return { renderLessons, isMastered, run };
 })();
 </script>
   <script>
@@ -1766,6 +1995,400 @@ const GameWords = (() => {
 })();
 </script>
   <script>
+// Тренажёр "Эдуба: слова" — тематические блоки, как в лексических списках шумерских писцов:
+// сначала всё близкое и конкретное (тело, семья, животные), в конце — действия.
+// Каждый блок сдаётся целиком (см. edubba.js), прежде чем откроется следующий.
+// Слово: [английский, тайский, транскрипция тайского (RTGS-подобная, долгие a/i/u удвоены)].
+const GameEdubba = (() => {
+  const CATEGORIES = [
+    { id: 'body', words: [['head', 'หัว', 'hua'], ['hair', 'ผม', 'phom'], ['face', 'หน้า', 'naa'], ['eye', 'ตา', 'taa'],
+      ['ear', 'หู', 'huu'], ['nose', 'จมูก', 'chamuuk'], ['mouth', 'ปาก', 'paak'], ['hand', 'มือ', 'mue']] },
+    { id: 'family', words: [['mother', 'แม่', 'mae'], ['father', 'พ่อ', 'pho'], ['son', 'ลูกชาย', 'luuk chaai'], ['daughter', 'ลูกสาว', 'luuk saao'],
+      ['friend', 'เพื่อน', 'phuean'], ['family', 'ครอบครัว', 'khrop khrua'], ['man', 'ผู้ชาย', 'phuu chaai'], ['woman', 'ผู้หญิง', 'phuu ying']] },
+    { id: 'animals', words: [['dog', 'หมา', 'maa'], ['cat', 'แมว', 'maeo'], ['bird', 'นก', 'nok'], ['fish', 'ปลา', 'plaa'],
+      ['cow', 'วัว', 'wua'], ['pig', 'หมู', 'muu'], ['elephant', 'ช้าง', 'chaang'], ['chicken', 'ไก่', 'kai']] },
+    { id: 'food', words: [['water', 'น้ำ', 'naam'], ['rice', 'ข้าว', 'khaao'], ['egg', 'ไข่', 'khai'], ['milk', 'นม', 'nom'],
+      ['tea', 'ชา', 'chaa'], ['coffee', 'กาแฟ', 'kaa fae'], ['salt', 'เกลือ', 'kluea'], ['fruit', 'ผลไม้', 'phon la mai']] },
+    { id: 'numbers', words: [['one', 'หนึ่ง', 'nueng'], ['two', 'สอง', 'song'], ['three', 'สาม', 'saam'], ['four', 'สี่', 'sii'], ['five', 'ห้า', 'haa'],
+      ['six', 'หก', 'hok'], ['seven', 'เจ็ด', 'chet'], ['eight', 'แปด', 'paet'], ['nine', 'เก้า', 'kao'], ['ten', 'สิบ', 'sip']] },
+    { id: 'time', words: [['day', 'วัน', 'wan'], ['night', 'คืน', 'khuen'], ['morning', 'เช้า', 'chaao'], ['evening', 'เย็น', 'yen'],
+      ['week', 'สัปดาห์', 'sap daa'], ['month', 'เดือน', 'duean'], ['year', 'ปี', 'pii'], ['yesterday', 'เมื่อวาน', 'muea waan']] },
+    { id: 'nature', words: [['sky', 'ฟ้า', 'faa'], ['rain', 'ฝน', 'fon'], ['wind', 'ลม', 'lom'], ['fire', 'ไฟ', 'fai'],
+      ['tree', 'ต้นไม้', 'ton mai'], ['flower', 'ดอกไม้', 'dok mai'], ['river', 'แม่น้ำ', 'mae naam'], ['sea', 'ทะเล', 'tha le']] },
+    { id: 'home', words: [['house', 'บ้าน', 'baan'], ['door', 'ประตู', 'pra tuu'], ['window', 'หน้าต่าง', 'naa tang'], ['table', 'โต๊ะ', 'to'],
+      ['chair', 'เก้าอี้', 'kao ii'], ['bed', 'เตียง', 'tiang'], ['book', 'หนังสือ', 'nang sue'], ['key', 'กุญแจ', 'kun chae']] },
+    { id: 'people', words: [['scribe', 'เสมียน', 'sa mian'], ['teacher', 'ครู', 'khruu'], ['student', 'นักเรียน', 'nak rian'], ['doctor', 'หมอ', 'mo'],
+      ['farmer', 'ชาวนา', 'chaao naa'], ['cook', 'พ่อครัว', 'pho khrua'], ['police', 'ตำรวจ', 'tam ruat'], ['king', 'กษัตริย์', 'ka sat']] },
+    { id: 'actions', words: [['eat', 'กิน', 'kin'], ['drink', 'ดื่ม', 'duem'], ['go', 'ไป', 'pai'], ['come', 'มา', 'maa'],
+      ['sleep', 'นอน', 'non'], ['read', 'อ่าน', 'aan'], ['write', 'เขียน', 'khian'], ['speak', 'พูด', 'phuut']] },
+  ];
+
+  // режимы независимы: слова двух языков в одной сессии не смешиваются
+  const MODES = {
+    en: { nameKey: 'edubba.modeEn', thai: false, lang: 'en-US', main: w => w[0], sub: w => `${w[1]} · ${w[2]}` },
+    th: { nameKey: 'edubba.modeTh', thai: true, lang: 'th-TH', main: w => w[1], sub: w => `${w[2]} · ${w[0]}` },
+  };
+
+  // лишние плитки-"помехи" по фазам: копирование почти без них, проверка — с запасом
+  const EXTRA_TILES = { copy: 2, recall: 4, exam: 6 };
+  // кластер = буква + её надстрочные/подстрочные знаки (тайские гласные и тоны), чтобы плитка была читаемой
+  const CLUSTER = /\P{M}\p{M}*/gu;
+
+  function makeItem(mode, w) {
+    const m = MODES[mode];
+    return { id: mode + '_' + w[0], answer: m.main(w), main: m.main(w), sub: m.sub(w), thai: m.thai };
+  }
+
+  function modelNode(item) {
+    return Utils.el('div', { class: 'pop-in text-center p-4 rounded-md border border-indigo-500/40 bg-indigo-500/10' }, [
+      Utils.el('div', { class: `${item.thai ? 'thai' : ''} text-3xl font-extrabold text-slate-100` }, item.main),
+      Utils.el('div', { class: 'thai text-sm text-slate-400 mt-1' }, item.sub),
+    ]);
+  }
+
+  function promptNode(item) {
+    return Utils.el('div', { class: 'text-center p-4 rounded-md border border-slate-700 bg-slate-800/50' }, [
+      Utils.el('div', { class: 'thai text-xl font-bold text-slate-100' }, item.sub),
+      Utils.el('div', { class: 'text-2xl text-slate-600 mt-1' }, '?'),
+    ]);
+  }
+
+  // слово собирается из плиток: и для латиницы, и для тайского работает без экранной клавиатуры
+  function tilesInput(answer, extra, pool, submit, thai) {
+    const chars = answer.match(CLUSTER);
+    const tiles = Utils.shuffle([...chars, ...Utils.sample(pool.filter(c => !chars.includes(c)), extra)]);
+    let picked = [];
+    const line = Utils.el('div', { class: `${thai ? 'thai' : ''} min-h-[3.5rem] flex flex-wrap items-center justify-center gap-1 rounded-md border border-slate-700 bg-slate-900 p-2 mb-3 text-2xl font-bold text-slate-100` });
+    const bank = Utils.el('div', { class: 'flex flex-wrap justify-center gap-2' });
+    const node = Utils.el('div', {}, [line, bank]);
+
+    function draw() {
+      line.innerHTML = '';
+      picked.forEach(i => line.appendChild(Utils.el('span', {}, tiles[i])));
+      bank.innerHTML = '';
+      tiles.forEach((t, i) => bank.appendChild(Utils.el('button', {
+        class: `${thai ? 'thai' : ''} min-w-[44px] h-12 px-3 rounded-md border border-slate-700 bg-slate-800 text-xl font-bold text-slate-100 hover:border-indigo-400 active:scale-95 transition ${picked.includes(i) ? 'opacity-25' : ''}`,
+        disabled: picked.includes(i) ? '' : null,
+        onclick: () => {
+          picked.push(i);
+          draw();
+          if (picked.length === chars.length) submit(picked.map(j => tiles[j]).join(''));
+        },
+      }, t)));
+      bank.appendChild(Utils.el('button', {
+        class: 'min-w-[44px] h-12 px-3 rounded-md border border-slate-700 bg-slate-900 text-slate-400 hover:border-indigo-400',
+        onclick: () => { picked.pop(); draw(); },
+      }, '⌫'));
+    }
+    node.reset = () => { picked = []; draw(); };
+    draw();
+    return node;
+  }
+
+  function mount(root) {
+    let mode = 'en';
+    renderSetup();
+
+    function renderSetup() {
+      root.innerHTML = '';
+      root.appendChild(Utils.el('div', { class: 'grid grid-cols-2 gap-2 mb-5' }, Object.entries(MODES).map(([key, m]) =>
+        Utils.el('button', {
+          class: `p-3 rounded-md border font-semibold transition ${mode === key ? 'border-indigo-500 bg-indigo-500/10 text-slate-100' : 'border-slate-700 bg-slate-800/50 text-slate-300'}`,
+          onclick: () => { mode = key; renderSetup(); },
+        }, I18N.t(m.nameKey)))));
+      root.appendChild(Edubba.renderLessons(CATEGORIES.map(c => ({
+        id: `words_${mode}_${c.id}`,
+        cat: c,
+        title: I18N.t('edubba.cat.' + c.id),
+        sub: I18N.t('edubba.wordsN', { n: c.words.length }),
+      })), l => startLesson(l.cat)));
+      root.appendChild(Utils.el('div', { class: 'mt-5' }, Utils.buildVoiceToggle(renderSetup)));
+      Utils.refreshIcons();
+    }
+
+    function startLesson(cat) {
+      const m = MODES[mode];
+      const items = cat.words.map(w => makeItem(mode, w));
+      const pool = [...new Set(items.flatMap(it => it.answer.match(CLUSTER)))];
+      Edubba.run(root, {
+        id: `words_${mode}_${cat.id}`,
+        title: `${I18N.t(m.nameKey)} · ${I18N.t('edubba.cat.' + cat.id)}`,
+        items,
+        prompt: promptNode,
+        model: modelNode,
+        makeInput: (item, phase, submit) => tilesInput(item.answer, EXTRA_TILES[phase], pool, submit, m.thai),
+        isCorrect: (item, value) => value === item.answer,
+        speak: it => { if (Utils.getVoiceEnabled()) Utils.speak(it.main, m.lang); },
+        onExit: renderSetup,
+      });
+    }
+  }
+
+  return { id: 'edubba', titleKey: 'game.edubba.title', descKey: 'game.edubba.desc', icon: 'scroll-text', color: 'bg-orange-600', mount };
+})();
+</script>
+  <script>
+// Тренажёр "Математика, шумерская" — шестидесятеричная система в логике писцов эдубы:
+// не считать каждый пример заново, а заучить таблицы обратных чисел (igi) и таблицы
+// умножения, а потом собирать составные вычисления только из заученного.
+// Деление на n = умножение на igi n. Все числа — позиционные, места через ":" (1:06 = «1, 6»),
+// в десятичный вид результат нигде не переводится: внутри код считает целыми, но игроку
+// показывается и от него принимается только шестидесятеричная запись.
+const GameSumer = (() => {
+  // --- шестидесятеричная арифметика ---
+  function fmt(n) {
+    if (n === 0) return '0';
+    const places = [];
+    for (; n > 0; n = Math.floor(n / 60)) places.unshift(n % 60);
+    return places.map((p, i) => (i ? String(p).padStart(2, '0') : String(p))).join(':');
+  }
+
+  // нормальная форма для сравнения: как в клинописи, конечные нули не пишутся ("1:00" = "1"),
+  // а значение места — 0..59; всё остальное (не число, место > 59) — null
+  function canon(s) {
+    const parts = String(s).trim().split(':');
+    if (!parts.every(p => /^\d{1,2}$/.test(p) && Number(p) < 60)) return null;
+    const nums = parts.map(Number);
+    while (nums.length > 1 && nums[nums.length - 1] === 0) nums.pop();
+    while (nums.length > 1 && nums[0] === 0) nums.shift();
+    return nums.join(':');
+  }
+
+  // igi n: число, на которое умножают n, чтобы получить 1 (степень 60); только для n = 2^a·3^b·5^c
+  function rec(n) {
+    for (let k = 1, p = 60; k <= 6; k++, p *= 60) if (p % n === 0) return p / n;
+    return null;
+  }
+
+  const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
+
+  // --- программа: обратные числа и таблицы умножения (порядок = порядок освоения) ---
+  // сначала igi 2–15, потом таблицы тех самых обратных (30, 20, 15, 12, 10…): делить на n —
+  // значит умножать на igi n, поэтому таблица igi n нужна ровно для деления на n
+  // 7, 11, 13, 14… пропущены: у них нет конечного igi (несократимые «нерегулярные» числа)
+  const IGI = [[2, 3, 4, 5, 6, 8, 9, 10, 12, 15], [16, 18, 20, 24, 25, 27, 30], [32, 36, 40, 45, 48, 50, 54]];
+  const igi = i => ({ id: `sumer_igi${i + 1}`, kind: 'igi', ns: IGI[i] });
+  const mul = (base, part) => ({
+    id: `sumer_mul${base}${part}`, kind: 'mul', base, part,
+    nums: part === 'a' ? range(1, 10) : [...range(11, 20), 30, 40, 50],
+  });
+  const both = base => [mul(base, 'a'), mul(base, 'b')];
+  const LESSONS = [
+    igi(0),
+    ...[30, 20, 15, 12, 10].map(b => mul(b, 'a')),
+    ...[30, 20, 15, 12, 10].map(b => mul(b, 'b')),
+    ...[6, 5, 4].flatMap(both),
+    igi(1),
+    ...[450, 400, 3, 2].flatMap(both), // 450 = 7:30, 400 = 6:40 (igi 8 и igi 9)
+    igi(2),
+  ];
+  const BASES = [30, 20, 15, 12, 10, 6, 5, 4, 450, 400, 3, 2];
+
+  // до какого множителя таблица основания заучена (10 — часть A, 20 — ещё и часть B)
+  const maxMul = b => (Edubba.isMastered(`sumer_mul${b}b`) ? 20 : Edubba.isMastered(`sumer_mul${b}a`) ? 10 : 0);
+  const usableBases = () => BASES.filter(b => maxMul(b) >= 10);
+  const usableDivisors = () => (Edubba.isMastered('sumer_igi1') ? IGI[0].filter(n => maxMul(rec(n)) >= 10) : []);
+
+  const pick = arr => arr[Utils.randInt(0, arr.length - 1)];
+
+  // составной пример = цепочка шагов, каждый шаг — строка из заученной таблицы либо сложение
+  function makeTask(tier) {
+    if (tier === 3) {
+      const b = pick(usableBases()), m = maxMul(b);
+      const d1 = Utils.randInt(1, m), d0 = Utils.randInt(1, m), a = d1 * 60 + d0;
+      return { title: `${fmt(a)} × ${fmt(b)}`, steps: [
+        { q: `${d1} × ${fmt(b)}`, answer: fmt(d1 * b) },
+        { q: `${d0} × ${fmt(b)}`, answer: fmt(d0 * b) },
+        { q: `${fmt(d1 * b)}:00 + ${fmt(d0 * b)}`, answer: fmt(a * b) },
+      ] };
+    }
+    const n = pick(usableDivisors()), r = rec(n), m = maxMul(r);
+    if (tier === 1) {
+      const d = Utils.randInt(2, m);
+      return { title: `${d} ÷ ${n}`, steps: [
+        { q: `igi ${n}`, answer: fmt(r) },
+        { q: `${d} × ${fmt(r)}`, answer: fmt(d * r) },
+      ] };
+    }
+    const d1 = Utils.randInt(1, m), d0 = Utils.randInt(1, m), a = d1 * 60 + d0;
+    return { title: `${fmt(a)} ÷ ${n}`, steps: [
+      { q: `igi ${n}`, answer: fmt(r) },
+      { q: `${d1} × ${fmt(r)}`, answer: fmt(d1 * r) },
+      { q: `${d0} × ${fmt(r)}`, answer: fmt(d0 * r) },
+      { q: `${fmt(d1 * r)}:00 + ${fmt(d0 * r)}`, answer: fmt(a * r) },
+    ] };
+  }
+
+  const TIERS = [1, 2, 3];
+  const tierReady = t => (t === 3 ? usableBases().length > 0 : usableDivisors().length > 0);
+  const practiceKey = t => `sumer_practice_t${t}`;
+
+  function historyVariants() {
+    return TIERS.map(t => ({ key: practiceKey(t), label: I18N.t('sumer.tier' + t) }));
+  }
+
+  // экранная клавиатура: цифры и ":" для разделения мест — системная клавиатура двоеточия не даёт
+  function keypad(submit) {
+    let val = '';
+    const display = Utils.el('div', { class: 'h-14 flex items-center justify-center rounded-md border border-slate-700 bg-slate-900 text-3xl font-extrabold tracking-wider text-slate-100 mb-3' });
+    const draw = () => { display.textContent = val || '·'; };
+    const key = (label, onclick) => Utils.el('button', { class: 'py-3 rounded-md border border-slate-700 bg-slate-800 text-xl font-bold text-slate-100 hover:border-indigo-400 active:scale-95 transition', onclick }, label);
+    const add = ch => () => { if (val.length < 12) { val += ch; draw(); } };
+    const node = Utils.el('div', {}, [
+      display,
+      Utils.el('div', { class: 'grid grid-cols-3 gap-2' }, [
+        ...'123456789'.split('').map(d => key(d, add(d))),
+        key(':', add(':')), key('0', add('0')), key('⌫', () => { val = val.slice(0, -1); draw(); }),
+      ]),
+      Utils.el('button', {
+        class: 'w-full mt-2 py-3 rounded-md bg-indigo-500 text-white font-bold hover:bg-indigo-400 active:scale-[.98] transition',
+        onclick: () => { if (val) submit(val); },
+      }, 'OK'),
+    ]);
+    node.reset = () => { val = ''; draw(); };
+    draw();
+    return node;
+  }
+
+  const eqNode = (q, a, tone) => Utils.el('div', { class: `pop-in text-center p-4 rounded-md border ${tone}` }, [
+    Utils.el('span', { class: 'text-3xl font-extrabold text-slate-100' }, a == null ? `${q} = ?` : `${q} = ${a}`),
+  ]);
+
+  function lessonItems(l) {
+    return l.kind === 'igi'
+      ? l.ns.map(n => ({ id: 'igi' + n, q: `igi ${n}`, answer: fmt(rec(n)), hint: true }))
+      : l.nums.map(k => ({ id: `${l.base}x${k}`, q: `${fmt(l.base)} × ${k}`, answer: fmt(l.base * k) }));
+  }
+
+  function lessonTitle(l) {
+    return l.kind === 'igi'
+      ? I18N.t('sumer.lessonIgi', { a: l.ns[0], b: l.ns[l.ns.length - 1] })
+      : I18N.t('sumer.lessonMul', { p: fmt(l.base) });
+  }
+
+  // диапазон множителей — во вторую строку списка, иначе длинное название обрезается
+  const rangeLabel = l => (l.kind === 'mul' ? I18N.t(l.part === 'a' ? 'sumer.rangeA' : 'sumer.rangeB') : '');
+  const lessonSub = l => [rangeLabel(l), I18N.t('sumer.itemsN', { n: lessonItems(l).length })].filter(Boolean).join(' · ');
+
+  function mount(root) {
+    renderSetup();
+
+    function renderSetup() {
+      root.innerHTML = '';
+      root.appendChild(Utils.el('details', { class: 'mb-5 text-xs text-slate-500' }, [
+        Utils.el('summary', { class: 'cursor-pointer select-none text-slate-400 hover:text-slate-300 py-1' }, I18N.t('sumer.howTitle')),
+        Utils.el('div', { class: 'mt-1.5 space-y-1.5' }, ['sumer.how1', 'sumer.how2', 'sumer.how3'].map(k => Utils.el('p', {}, I18N.t(k)))),
+      ]));
+
+      root.appendChild(Utils.el('div', { class: 'text-sm font-semibold text-slate-400 mb-2' }, I18N.t('sumer.tables')));
+      root.appendChild(Edubba.renderLessons(LESSONS.map(l => ({
+        id: l.id, l, title: lessonTitle(l), sub: lessonSub(l),
+      })), x => startLesson(x.l)));
+
+      root.appendChild(Utils.el('div', { class: 'text-sm font-semibold text-slate-400 mt-6 mb-1' }, I18N.t('sumer.practice')));
+      root.appendChild(Utils.el('div', { class: 'text-xs text-slate-500 mb-2' }, I18N.t('sumer.practiceNote')));
+      root.appendChild(Utils.el('div', { class: 'space-y-2' }, TIERS.map(t => {
+        const ready = tierReady(t), best = Utils.getBest(practiceKey(t));
+        return Utils.el('button', {
+          class: `w-full flex items-center justify-between p-3 rounded-md border text-left transition ${ready ? 'border-slate-700 bg-slate-800/50 hover:border-indigo-400' : 'border-slate-800 bg-slate-900/40 opacity-50'}`,
+          onclick: ready ? () => runPractice(t) : null,
+        }, [
+          Utils.el('div', {}, [
+            Utils.el('div', { class: 'font-semibold text-slate-100' }, I18N.t('sumer.tier' + t)),
+            Utils.el('div', { class: 'text-xs text-slate-500' }, I18N.t('sumer.tier' + t + 'Desc')),
+          ]),
+          best != null ? Utils.el('span', { class: 'text-xs font-bold text-slate-400' }, I18N.t('common.record') + ': ' + best) : null,
+        ]);
+      })));
+      Utils.refreshIcons();
+    }
+
+    function startLesson(l) {
+      Edubba.run(root, {
+        id: l.id,
+        title: [lessonTitle(l), rangeLabel(l)].filter(Boolean).join(' · '),
+        items: lessonItems(l),
+        prompt: it => Utils.el('div', {}, [
+          eqNode(it.q, null, 'border-slate-700 bg-slate-800/50'),
+          it.hint ? Utils.el('div', { class: 'text-xs text-slate-500 text-center mt-2' }, I18N.t('sumer.igiHint')) : null,
+        ]),
+        model: it => eqNode(it.q, it.answer, 'border-indigo-500/40 bg-indigo-500/10'),
+        makeInput: (item, phase, submit) => keypad(submit),
+        isCorrect: (item, value) => canon(value) === canon(item.answer),
+        onExit: renderSetup,
+      });
+    }
+
+    function runPractice(tier) {
+      const TASKS = 8;
+      let ti = 0, score = 0;
+      nextTask();
+
+      function nextTask() {
+        if (ti >= TASKS) return finish();
+        const task = makeTask(tier);
+        let si = 0, mistakes = 0;
+        const done = [];
+        renderStep();
+
+        function frame(body) {
+          root.innerHTML = '';
+          root.appendChild(Utils.el('div', { class: 'flex items-center justify-between text-sm mb-3' }, [
+            Utils.el('span', { class: 'font-semibold text-slate-300' }, I18N.t('sumer.taskN', { i: ti + 1, n: TASKS })),
+            Utils.el('span', { class: 'font-bold text-indigo-400' }, I18N.t('common.points', { n: score })),
+          ]));
+          root.appendChild(Utils.el('div', { class: 'text-center text-3xl font-extrabold text-slate-100 mb-4' }, task.title));
+          root.appendChild(Utils.el('div', { class: 'space-y-1 mb-4 text-center text-slate-400' }, done.map(d => Utils.el('div', {}, d))));
+          body.forEach(n => root.appendChild(n));
+        }
+
+        function renderStep() {
+          const step = task.steps[si];
+          let tries = 0;
+          const widget = keypad(value => {
+            if (canon(value) === canon(step.answer)) return advance();
+            mistakes++;
+            tries++;
+            widget.classList.add('shake');
+            setTimeout(() => widget.classList.remove('shake'), 500);
+            widget.reset();
+            if (tries >= 3) advance();
+          });
+          frame([Utils.el('div', { class: 'text-center text-2xl font-bold text-indigo-300 mb-3' }, `${step.q} = ?`), widget]);
+
+          function advance() {
+            done.push(`${step.q} = ${step.answer}`);
+            if (++si < task.steps.length) return renderStep();
+            score += Math.max(0, 10 - 3 * mistakes);
+            ti++;
+            frame([]);
+            setTimeout(nextTask, 700);
+          }
+        }
+      }
+
+      function finish() {
+        Utils.setBest(practiceKey(tier), score, true);
+        Utils.recordResult(practiceKey(tier), score);
+        root.innerHTML = '';
+        root.appendChild(Utils.el('div', { class: 'text-center py-8' }, [
+          Utils.el('i', { 'data-lucide': 'flag', class: 'w-10 h-10 mx-auto text-slate-500 mb-3' }),
+          Utils.el('div', { class: 'text-xl font-extrabold text-slate-100' }, I18N.t('sumer.practiceDone')),
+          Utils.el('div', { class: 'text-slate-400 mt-1' }, I18N.t('sumer.scoreLine', { score, max: TASKS * 10 })),
+          Utils.el('div', { class: 'flex gap-2 justify-center mt-6' }, [
+            Utils.el('button', { class: 'px-4 py-2 rounded-md bg-indigo-500 text-white font-semibold hover:bg-indigo-400', onclick: () => runPractice(tier) }, I18N.t('common.playAgain')),
+            Utils.el('button', { class: 'px-4 py-2 rounded-md bg-slate-800 text-slate-200 font-semibold hover:bg-slate-700', onclick: renderSetup }, I18N.t('edubba.toList')),
+          ]),
+        ]));
+        Utils.refreshIcons();
+      }
+    }
+  }
+
+  return { id: 'sumer', titleKey: 'game.sumer.title', descKey: 'game.sumer.desc', icon: 'sigma', color: 'bg-teal-600', historyVariants, mount, sex: { fmt, canon, rec } };
+})();
+</script>
+  <script>
 // Тренажёр "Скорочтение" — метод Spritz (RSVP): слова показываются по одному
 // в фиксированной точке экрана, с "оптимальной точкой распознавания" (ORP) —
 // одна буква слова всегда выровнена по центру, чтобы глаз не двигался.
@@ -2004,6 +2627,7 @@ const StatsView = (() => {
     { game: GamePairs, stroke: '#fb7185', higherIsBetter: true, fmt: v => `${v}` },
     { game: GameSchulte, stroke: '#fbbf24', higherIsBetter: false, fmt: v => Utils.fmtTime(v) },
     { game: GameWords, stroke: '#22d3ee', higherIsBetter: true, fmt: v => `${v}` },
+    { game: GameSumer, stroke: '#2dd4bf', higherIsBetter: true, fmt: v => `${v}` },
   ];
 
   function svgEl(tag, attrs = {}) {
@@ -2106,7 +2730,7 @@ const StatsView = (() => {
 // Меню и навигация между тренажёрами
 (() => {
   const root = document.getElementById('app-root');
-  const games = [GameLine, GameMath, GamePairs, GameSchulte, GameWords, GameSpeedRead];
+  const games = [GameLine, GameMath, GameSumer, GamePairs, GameSchulte, GameWords, GameEdubba, GameSpeedRead];
   const menuItems = [...games, StatsView];
 
   function langToggle() {

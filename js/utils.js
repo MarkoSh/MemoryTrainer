@@ -54,13 +54,15 @@ const Utils = (() => {
     return shuffle(arr).slice(0, n);
   }
 
+  // localStorage может бросать (напр. недоступное хранилище в WebView) —
+  // без защиты это роняет весь обработчик клика на середине игры
   function getBest(key) {
-    return localStorage.getItem('mt_best_' + key);
+    try { return localStorage.getItem('mt_best_' + key); } catch (e) { return null; }
   }
   function setBest(key, value, higherIsBetter) {
     const cur = getBest(key);
     if (cur == null || (higherIsBetter ? Number(value) > Number(cur) : Number(value) < Number(cur))) {
-      localStorage.setItem('mt_best_' + key, value);
+      try { localStorage.setItem('mt_best_' + key, value); } catch (e) { /* нет хранилища — рекорд просто не сохранится */ }
       return true;
     }
     return false;
@@ -73,7 +75,7 @@ const Utils = (() => {
     try { hist = JSON.parse(localStorage.getItem(key)) || []; } catch (e) { hist = []; }
     hist.push({ t: Date.now(), v: value });
     if (hist.length > HISTORY_LIMIT) hist = hist.slice(hist.length - HISTORY_LIMIT);
-    localStorage.setItem(key, JSON.stringify(hist));
+    try { localStorage.setItem(key, JSON.stringify(hist)); } catch (e) { /* нет хранилища — история просто не сохранится */ }
   }
   function getHistory(gameId) {
     try { return JSON.parse(localStorage.getItem('mt_hist_' + gameId)) || []; } catch (e) { return []; }
@@ -109,8 +111,8 @@ const Utils = (() => {
       window.speechSynthesis.speak(utter);
     } catch (e) { /* Web Speech недоступен — молча игнорируем */ }
   }
-  function getVoiceEnabled() { return localStorage.getItem('mt_voice_enabled') === '1'; }
-  function setVoiceEnabled(v) { localStorage.setItem('mt_voice_enabled', v ? '1' : '0'); }
+  function getVoiceEnabled() { try { return localStorage.getItem('mt_voice_enabled') === '1'; } catch (e) { return false; } }
+  function setVoiceEnabled(v) { try { localStorage.setItem('mt_voice_enabled', v ? '1' : '0'); } catch (e) { /* нет хранилища — переключится только на эту сессию */ } }
 
   // тумблер озвучки — общий для тренажёров со словами/буквами (Строчка, Слова)
   function buildVoiceToggle(onChange) {

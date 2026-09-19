@@ -22,6 +22,8 @@ const I18N = (() => {
         schulte: { title: 'Таблицы Шульте', desc: 'Находи числа по порядку боковым зрением' },
         words: { title: 'Слова', desc: 'Запомни и повтори набор слов' },
         speedread: { title: 'Скорочтение', desc: 'Читай текст словами по методу Spritz' },
+        edubba: { title: 'Эдуба: слова', desc: 'Тематические блоки: копируй, вспоминай, сдавай проверку' },
+        sumer: { title: 'Математика, шумерская', desc: 'Таблицы igi и умножения в шестидесятеричной системе' },
         stats: { title: 'Статистика', desc: 'Графики прогресса по всем тренажёрам' },
       },
       line: {
@@ -98,6 +100,46 @@ const I18N = (() => {
         toStart: 'В начало',
         toBookmark: 'К закладке',
       },
+      edubba: {
+        phase: { copy: '1 · Копирование', recall: '2 · Вспомни сам', exam: '3 · Проверка' },
+        hint: {
+          copy: 'Образец перед глазами — повтори его в точности, как писец копирует табличку учителя.',
+          recall: 'Образец убран. Восстанови по подсказке; две ошибки — образец откроется.',
+          exam: 'Порядок перемешан, подсказок нет, одна попытка. Как ответ перед проверяющим.',
+        },
+        peek: 'Подсмотреть образец',
+        next: 'Дальше',
+        mastered: 'Блок освоен', notYet: 'Пока не освоено',
+        need: 'нужно не менее {n}%',
+        mistakesList: 'Что не удалось:',
+        repeat: 'Повторить ошибки', toList: 'К списку блоков',
+        modeEn: 'Английский', modeTh: 'Тайский',
+        wordsN: '{n} слов',
+        cat: {
+          body: 'Тело', family: 'Семья и люди', animals: 'Животные', food: 'Еда и питьё', numbers: 'Числа 1–10',
+          time: 'Время', nature: 'Природа', home: 'Дом и вещи', people: 'Занятия и ремёсла', actions: 'Действия',
+        },
+      },
+      sumer: {
+        howTitle: 'Как читать шестидесятеричные числа',
+        how1: 'Число пишется по местам, места разделяются двоеточием, в каждом месте — число от 0 до 59. Например, 1:06 — «один, шесть».',
+        how2: 'Конечные нули можно не писать, как в клинописи: 1 и 1:00 — одно и то же.',
+        how3: 'igi n — число, на которое умножают n, чтобы получить 1. Делить на n значит умножать на igi n.',
+        tables: 'Таблицы для заучивания',
+        practice: 'Практика: составные примеры',
+        practiceNote: 'Только из заученных таблиц. Каждый шаг — в шестидесятеричной записи.',
+        itemsN: '{n} значений',
+        lessonIgi: 'Обратные числа (igi) {a}–{b}',
+        lessonMul: 'Таблица ×{p}',
+        rangeA: 'множители 1–10', rangeB: 'множители 11–20, 30, 40, 50',
+        igiHint: 'Число, которое при умножении на n даёт 1',
+        tier1: 'Деление на igi', tier1Desc: 'Одно число ÷ n: igi и одно умножение',
+        tier2: 'Деление составного числа', tier2Desc: 'Два места ÷ n: igi, два умножения, сложение',
+        tier3: 'Умножение по таблице', tier3Desc: 'Два места × основание: два умножения, сложение',
+        taskN: 'Пример {i} / {n}',
+        practiceDone: 'Практика завершена',
+        scoreLine: 'Счёт: {score} из {max}',
+      },
       stats: {
         sessions: 'Сессий: {n}',
         playAgain: 'Сыграй ещё раз, чтобы увидеть график',
@@ -126,6 +168,8 @@ const I18N = (() => {
         schulte: { title: 'Schulte Tables', desc: 'Find numbers in order using peripheral vision' },
         words: { title: 'Words', desc: 'Memorize and repeat a set of words' },
         speedread: { title: 'Speed Reading', desc: 'Read text word-by-word with the Spritz method' },
+        edubba: { title: 'Edubba: Words', desc: 'Themed blocks: copy, recall, pass the exam' },
+        sumer: { title: 'Sumerian Math', desc: 'Igi and multiplication tables in base 60' },
         stats: { title: 'Statistics', desc: 'Progress charts for every trainer' },
       },
       line: {
@@ -202,6 +246,46 @@ const I18N = (() => {
         toStart: 'To start',
         toBookmark: 'To bookmark',
       },
+      edubba: {
+        phase: { copy: '1 · Copy', recall: '2 · Recall', exam: '3 · Exam' },
+        hint: {
+          copy: 'The model is in front of you — reproduce it exactly, like a scribe copying the teacher\'s tablet.',
+          recall: 'The model is gone. Rebuild it from the clue; two mistakes reveal the model.',
+          exam: 'Shuffled order, no hints, one attempt. Like answering before the examiner.',
+        },
+        peek: 'Peek at the model',
+        next: 'Next',
+        mastered: 'Block mastered', notYet: 'Not mastered yet',
+        need: 'need at least {n}%',
+        mistakesList: 'What went wrong:',
+        repeat: 'Repeat the mistakes', toList: 'Back to blocks',
+        modeEn: 'English', modeTh: 'Thai',
+        wordsN: '{n} words',
+        cat: {
+          body: 'Body', family: 'Family & people', animals: 'Animals', food: 'Food & drink', numbers: 'Numbers 1–10',
+          time: 'Time', nature: 'Nature', home: 'Home & things', people: 'Trades & occupations', actions: 'Actions',
+        },
+      },
+      sumer: {
+        howTitle: 'How to read base-60 numbers',
+        how1: 'A number is written place by place, places separated by a colon, each place is 0 to 59. For example, 1:06 is “one, six”.',
+        how2: 'Trailing zeros may be omitted, as in cuneiform: 1 and 1:00 are the same.',
+        how3: 'igi n is the number you multiply n by to get 1. Dividing by n means multiplying by igi n.',
+        tables: 'Tables to memorize',
+        practice: 'Practice: composite problems',
+        practiceNote: 'Built only from tables you have learned. Every step in base 60.',
+        itemsN: '{n} entries',
+        lessonIgi: 'Reciprocals (igi) {a}–{b}',
+        lessonMul: 'Table ×{p}',
+        rangeA: 'multipliers 1–10', rangeB: 'multipliers 11–20, 30, 40, 50',
+        igiHint: 'The number that gives 1 when multiplied by n',
+        tier1: 'Division by igi', tier1Desc: 'One place ÷ n: igi and one multiplication',
+        tier2: 'Composite division', tier2Desc: 'Two places ÷ n: igi, two multiplications, an addition',
+        tier3: 'Table multiplication', tier3Desc: 'Two places × base: two multiplications, an addition',
+        taskN: 'Problem {i} / {n}',
+        practiceDone: 'Practice complete',
+        scoreLine: 'Score: {score} of {max}',
+      },
       stats: {
         sessions: 'Sessions: {n}',
         playAgain: 'Play again to see the chart',
@@ -211,7 +295,10 @@ const I18N = (() => {
     },
   };
 
-  let lang = localStorage.getItem('mt_lang') || 'ru';
+  // try/catch: localStorage может бросать (напр. file:// origin в некоторых
+  // WebView) — без защиты это падение убивает весь I18N и следом main.js
+  let lang = 'ru';
+  try { lang = localStorage.getItem('mt_lang') || 'ru'; } catch (e) { /* нет доступа к хранилищу — остаёмся на ru */ }
 
   function t(key, vars) {
     const node = key.split('.').reduce((acc, k) => (acc == null ? acc : acc[k]), dict[lang]);
@@ -220,7 +307,7 @@ const I18N = (() => {
     return str;
   }
   function getLang() { return lang; }
-  function setLang(l) { lang = l; localStorage.setItem('mt_lang', l); }
+  function setLang(l) { lang = l; try { localStorage.setItem('mt_lang', l); } catch (e) { /* игнорируем — язык хотя бы поменяется на эту сессию */ } }
 
   return { t, getLang, setLang };
 })();

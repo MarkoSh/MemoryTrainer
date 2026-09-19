@@ -6,6 +6,7 @@ const StatsView = (() => {
     { game: GamePairs, stroke: '#fb7185', higherIsBetter: true, fmt: v => `${v}` },
     { game: GameSchulte, stroke: '#fbbf24', higherIsBetter: false, fmt: v => Utils.fmtTime(v) },
     { game: GameWords, stroke: '#22d3ee', higherIsBetter: true, fmt: v => `${v}` },
+    { game: GameSumer, stroke: '#2dd4bf', higherIsBetter: true, fmt: v => `${v}` },
   ];
 
   function svgEl(tag, attrs = {}) {
